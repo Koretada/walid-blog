@@ -38,7 +38,7 @@ RUN npm run build
 # ===========================================================================
 # Étape 2 — Runtime : Nginx sert uniquement des fichiers statiques
 # ===========================================================================
-FROM nginx:1.27-alpine AS runtime
+FROM nginx:1.31-alpine AS runtime
 
 # Configuration Nginx (en-têtes de sécurité, cache, compression, 404)
 COPY docker/nginx.conf /etc/nginx/conf.d/default.conf
