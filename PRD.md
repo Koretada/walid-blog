@@ -266,6 +266,7 @@ walidblog/
 - **Branches** : `main` · `feat/*`, `fix/*`, `content/*` (travail).
 - **Commits** : convention `feat:`, `fix:`, `add:`, `docs:` (alignée sur les autres repos).
 - **Aucun secret** requis : la CI **valide** seulement, elle ne publie rien.
+- **Link-check** : lychee vérifie les liens des documents en prose (`README.md`, `docker/README.md`) **et** des articles. Attention, lychee **ignore par défaut les liens dans les blocs de code** : les URL d'exemple des tutoriels (placeholders, `localhost`, `*.test`) ne sont pas vérifiées. Un scan sans lien n'est donc pas une erreur (`failIfEmpty: false`), et les adresses locales/réservées sont exclues via `.lycheeignore`.
 
 ### 7.4 Livraison : application conteneurisée (Docker)
 

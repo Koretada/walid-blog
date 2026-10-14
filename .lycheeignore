@@ -1,0 +1,16 @@
+# Liens exclus de la vérification (une expression régulière par ligne).
+# https://github.com/lycheeverse/lychee#excluding-links-from-getting-checked
+
+# Adresses locales / privées : jamais joignables depuis la CI
+^http://localhost
+^http://127\.0\.0\.1
+^http://0\.0\.0\.0
+
+# Domaines réservés aux exemples (RFC 2606 / RFC 6761)
+^https?://[^/]*\.test
+^https?://[^/]*\.example
+^https?://example\.(com|org|net)
+
+# Placeholders d'infrastructure interne
+^https://kubernetes\.default\.svc
+^https://github\.com/example/

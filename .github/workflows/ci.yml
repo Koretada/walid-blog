@@ -86,7 +86,20 @@ jobs:
       - name: Check links
         uses: lycheeverse/lychee-action@v2
         with:
-          args: --verbose --no-progress --accept 200,206,429 'src/content/**/*.md' 'src/content/**/*.mdx'
+          # Motifs préfixés par "./" : c'est la forme résolue par lychee
+          # (celle des arguments par défaut de l'action).
+          #
+          # Important : lychee n'extrait PAS les liens situés dans les blocs de
+          # code (`pre`/`code`). Nos articles techniques placent leurs URL dans
+          # des exemples ```bash/```yaml/```hcl, volontairement non vérifiables
+          # (placeholders, adresses locales). On scanne donc en priorité les
+          # documents en prose, où les liens sont réels.
+          args: >-
+            --verbose --no-progress --accept 200,206,429
+            './*.md' './docker/*.md' './src/content/**/*.md' './src/content/**/*.mdx'
+          # Un scan sans lien est légitime ici (cf. ci-dessus) : sans ceci,
+          # l'action signalerait à tort une « configuration error ».
+          failIfEmpty: false
           fail: false
 
   # Job bloquant : l'image Docker est notre artefact de livraison,
