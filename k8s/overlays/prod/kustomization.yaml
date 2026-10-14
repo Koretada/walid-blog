@@ -1,11 +1,6 @@
 apiVersion: kustomize.config.k8s.io/v1beta1
 kind: Kustomization
 
-# Point d'entrée surveillé par ArgoCD (Application → spec.source.path).
-#
-# ⚠️  SEUL le champ `newTag` ci-dessous est modifié par la CI
-#     (.github/workflows/publish.yml) à chaque publication.
-
 namespace: walid-blog
 
 resources:

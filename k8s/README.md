@@ -4,8 +4,8 @@ Le blog est publié sous forme d'image Docker sur GHCR, puis déployé sur un cl
 Kubernetes par **ArgoCD**, selon le principe GitOps : **Git est la source de vérité**,
 ArgoCD réconcilie en continu l'état du cluster.
 
-> Prérequis : un cluster avec **ArgoCD** et un **contrôleur Ingress** (Ingress NGINX).
-> Le certificat TLS est fourni par **cert-manager** (optionnel).
+> Prérequis : un cluster avec **ArgoCD** et un **contrôleur Ingress**.
+> Sur K3s, **Traefik** est fourni par défaut — c'est ce que ces manifests ciblent.
 
 ## Sommaire du dossier
 
@@ -102,13 +102,98 @@ kubectl apply --dry-run=client -f <(kubectl kustomize k8s/overlays/prod)
   `/var/cache/nginx`). Pour aller plus loin : `nginxinc/nginx-unprivileged` (voir
   [`../docker/README.md`](../docker/README.md)).
 
+## Traefik (contrôleur Ingress de K3s)
+
+K3s embarque **Traefik** comme contrôleur Ingress par défaut : l'Ingress de ce dossier
+utilise donc `ingressClassName: traefik`.
+
+```bash
+kubectl get ingressclass          # → traefik (souvent marqué « default »)
+```
+
+> ⚠️ Ne pas confondre les deux « Nginx » : **Traefik** route le trafic *vers* le cluster
+> (rôle de l'Ingress), **Nginx** sert les fichiers statiques *dans* le conteneur
+> (voir [`../docker/`](../docker)).
+
+### Redirection HTTP → HTTPS
+
+`spec.tls` seul ne redirige pas : le site resterait joignable en clair sur HTTP. Deux options.
+
+**Option A — globale (recommandée sur K3s)** : à déclarer une seule fois, au niveau du cluster.
+
+```yaml
+# /var/lib/rancher/k3s/server/manifests/traefik-config.yaml
+apiVersion: helm.cattle.io/v1
+kind: HelmChartConfig
+metadata:
+  name: traefik
+  namespace: kube-system
+spec:
+  valuesContent: |-
+    ports:
+      web:
+        redirectTo:
+          port: websecure
+```
+
+**Option B — par Ingress** : créer un `Middleware`, puis le référencer dans une annotation.
+
+```yaml
+apiVersion: traefik.io/v1alpha1   # Traefik 3.x — `traefik.containo.us/v1alpha1` sur du 2.x
+kind: Middleware
+metadata:
+  name: redirect-https
+  namespace: walid-blog
+spec:
+  redirectScheme:
+    scheme: https
+    permanent: true
+```
+
+```yaml
+# à ajouter sur l'Ingress
+annotations:
+  traefik.ingress.kubernetes.io/router.middlewares: walid-blog-redirect-https@kubernetescrd
+```
+
+La référence se lit `<namespace>-<nom>@kubernetescrd`.
+
+### Variante : `IngressRoute` (CRD Traefik)
+
+Plus expressif (`entryPoints` explicites, middlewares, options TLS), mais **propre à
+Traefik** et donc non portable :
+
+```yaml
+apiVersion: traefik.io/v1alpha1
+kind: IngressRoute
+metadata:
+  name: walid-blog
+  namespace: walid-blog
+spec:
+  entryPoints: [websecure]
+  routes:
+    - match: Host(`walidblog.example.com`)
+      kind: Rule
+      services:
+        - name: walid-blog
+          port: 80
+  tls: {}
+```
+
+**Choix retenu : l'Ingress standard.** Pour un site statique il fait exactement le même
+travail, il est compatible cert-manager, et il resterait valable si tu changeais de
+contrôleur. `IngressRoute` n'a d'intérêt qu'à partir du moment où tu veux des middlewares
+Traefik avancés (limitation de débit, en-têtes, authentification).
+
 ## Dépannage
 
 | Symptôme | Cause probable |
 | --- | --- |
 | `ImagePullBackOff` | Package GHCR resté privé, ou tag inexistant dans le registre |
 | `503` sur le domaine | Aucun pod `Ready` (voir `kubectl -n walid-blog describe pod`) |
-| Certificat TLS invalide | `cert-manager` absent, ou annotation `cluster-issuer` non décommentée |
+| `404` renvoyé par Traefik | `ingressClassName` erroné → `kubectl get ingressclass` |
+| Le site répond en HTTP sans redirection | Redirection HTTP→HTTPS non configurée (voir ci-dessus) |
+| Certificat TLS invalide / auto-signé | `cert-manager` absent, annotation `cluster-issuer` commentée, ou secret `walid-blog-tls` inexistant |
 | ArgoCD `OutOfSync` en boucle | `selfHeal` corrige une modification manuelle : revenez à Git |
 | Le site ne se met pas à jour | Le commit de bump n'a pas été poussé (`publish.yml` en échec) |
 
