@@ -88,3 +88,48 @@ jobs:
         with:
           args: --verbose --no-progress --accept 200,206,429 'src/content/**/*.md' 'src/content/**/*.mdx'
           fail: false
+
+  # Job bloquant : l'image Docker est notre artefact de livraison,
+  # on vérifie qu'elle se construit ET que le conteneur sert bien le site.
+  docker:
+    name: Docker build · smoke test
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Setup Buildx
+        uses: docker/setup-buildx-action@v3
+
+      - name: Build image
+        uses: docker/build-push-action@v6
+        with:
+          context: .
+          file: docker/Dockerfile
+          push: false
+          load: true
+          tags: walidblog:ci
+          cache-from: type=gha
+          cache-to: type=gha,mode=max
+
+      - name: Smoke test
+        run: |
+          set -uo pipefail
+
+          docker run -d --name walidblog-ci -p 8080:8080 walidblog:ci
+
+          ok=0
+          for _ in $(seq 1 30); do
+            if curl -fsS -o /dev/null http://localhost:8080/; then ok=1; break; fi
+            sleep 2
+          done
+
+          if [ "$ok" != "1" ]; then
+            echo "::error::Le site ne répond pas sur http://localhost:8080/"
+            docker logs walidblog-ci
+            docker rm -f walidblog-ci
+            exit 1
+          fi
+
+          echo "✅ Le site répond."
+          curl -fsSI http://localhost:8080/ | head -15
+          docker rm -f walidblog-ci

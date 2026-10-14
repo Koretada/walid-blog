@@ -9,7 +9,8 @@ première étape, puis servi par **Nginx** dans une image finale légère (sans 
 | --- | --- |
 | `Dockerfile` | Build multi-étapes : `node:22-bookworm-slim` (build) → `nginx:1.27-alpine` (runtime) |
 | `nginx.conf` | Configuration Nginx : en-têtes de sécurité, compression, cache, 404 |
-| `docker-compose.yml` | Lancement en une commande (`docker compose up`) |
+| `docker-compose.yml` | Développement / build local (`--build`) |
+| `docker-compose.prod.yml` | Production : utilise l'image publiée sur GHCR |
 
 > Le fichier `.dockerignore` se trouve **à la racine du dépôt** : Docker ne le lit qu'à
 > l'endroit du contexte de build, qui est la racine (le build a besoin de `src/`, `public/`…).
@@ -92,3 +93,29 @@ curl -sSI http://localhost:8080/ | head -12    # statut, CSP, cache…
 docker inspect --format '{{.State.Health.Status}}' walidblog
 docker rm -f walidblog
 ```
+
+---
+
+## Production : image publiée sur GHCR
+
+L'image est construite et publiée automatiquement par le workflow
+[`.github/workflows/publish.yml`](../.github/workflows/publish.yml) à chaque merge sur `main`
+(et sur les tags Git `v*`).
+
+```text
+merge sur main
+   └── publish.yml ──► ghcr.io/koretada/walid-blog:latest
+                       ghcr.io/koretada/walid-blog:sha-<court>
+```
+
+Sur l'hôte :
+
+```bash
+docker compose -f docker/docker-compose.prod.yml pull
+docker compose -f docker/docker-compose.prod.yml up -d
+
+# Rollback : épingler un tag sha immuable
+TAG=sha-a1b2c3d docker compose -f docker/docker-compose.prod.yml up -d
+```
+
+Variables reconnues : `IMAGE` (défaut `ghcr.io/koretada/walid-blog`) et `TAG` (défaut `latest`).

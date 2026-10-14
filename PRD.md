@@ -287,9 +287,17 @@ Dépôt Git
 - **En-têtes de sécurité** appliqués par `docker/nginx.conf` (CSP, HSTS, `X-Frame-Options`…).
 - **TLS** : terminé en amont par un reverse proxy / un ingress.
 
-> Choix assumé : **pas de S3 privé, pas d'OAC, pas de Terraform, pas de workflow de
-> déploiement**. Un blog statique n'a pas besoin de ce niveau d'infrastructure ; la livraison
-> passe par **une image Docker** exécutable n'importe où.
+> Choix assumé : **pas de S3 privé, pas d'OAC, pas de Terraform, pas de déploiement
+> automatisé**. La livraison passe par **une image Docker** publiée sur un registre ; la mise
+> à jour de l'hôte reste une opération explicite (`docker compose pull`).
+
+#### 7.4.1 Publication de l'image
+
+- **Registre** : GitHub Container Registry (`ghcr.io/<owner>/<repo>`).
+- **Déclencheur** : merge sur `main` (tags `latest` + `sha-<court>`) et tags Git `v*` (release lisible).
+- **Immuabilité** : le contenu est cuit dans l'image — un article publié = une image. Le rollback s'obtient en épinglant un tag `sha-<court>` antérieur.
+- **Cache de build** (`type=gha`) : la couche `npm ci` n'est pas rejouée à chaque publication.
+- **Validation continue** : la CI construit et **teste l'image** (smoke test HTTP sur `:8080`) avant tout merge.
 
 ### 7.5 Environnements
 

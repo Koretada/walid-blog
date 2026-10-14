@@ -153,6 +153,73 @@ via un reverse proxy / un ingress.
 
 ---
 
+## Publication & mise à jour
+
+### Stratégie retenue
+
+**Image immuable + registre (GHCR) + tags explicites.** Le contenu est cuit dans l'image :
+un nouvel article produit une nouvelle image, ce qui garantit un rollback déterministe
+(`docker pull :sha-<ancien>`).
+
+| Étape | Où | Déclencheur |
+| --- | --- | --- |
+| Écrire un article | branche `content/<slug>` | manuel |
+| Valider | CI (`ci.yml`) | Pull Request |
+| Fusionner | `main` | manuel |
+| **Construire + publier l'image** | `publish.yml` → GHCR | merge sur `main` (ou tag `v*`) |
+| **Mettre à jour le serveur** | hôte | `docker compose pull && up -d` |
+
+### Tags produits
+
+```
+ghcr.io/koretada/walid-blog:latest       # mobile → dernier merge de main
+ghcr.io/koretada/walid-blog:sha-a1b2c3d  # immuable → rollback déterministe
+ghcr.io/koretada/walid-blog:v1.2.0       # tag Git → "release" lisible
+```
+
+`publish.yml` réutilise le cache de build (`type=gha`) : la couche `npm ci` n'est pas
+rejouée, seul `COPY . .` + `npm run build` le sont.
+
+### Sur le serveur
+
+```bash
+# Dernière version
+docker compose -f docker/docker-compose.prod.yml pull
+docker compose -f docker/docker-compose.prod.yml up -d
+
+# Épingler une version (rollback)
+TAG=sha-a1b2c3d docker compose -f docker/docker-compose.prod.yml up -d
+```
+
+### Mise à jour automatique (optionnel)
+
+Ajoutez Watchtower pour tirer les nouvelles images sans intervention :
+
+```yaml
+  watchtower:
+    image: containrrr/watchtower
+    restart: unless-stopped
+    volumes:
+      - /var/run/docker.sock:/var/run/docker.sock
+    command: --interval 600 --cleanup walidblog
+```
+
+> Avec Watchtower, la production suit `latest` : pratique, mais vous ne contrôlez plus le
+> moment du basculement. Pour un blog, un `docker compose pull` manuel (ou un timer
+> `systemd`) reste plus prévisible.
+
+### Première publication
+
+1. Créer le dépôt GitHub et pousser `main`.
+2. **Settings → Actions → General → Workflow permissions** : autoriser l'écriture des
+   packages (ou se fier à `permissions: packages: write` du workflow).
+3. Après le premier run, rendre le package visible : **Packages → walidblog → Package settings**.
+
+Les images de base (`node`, `nginx`) et les dépendances sont suivies par **Dependabot**
+(`.github/dependabot.yml`).
+
+---
+
 ## Licence
 
 - **Code** : [MIT](./LICENSE)

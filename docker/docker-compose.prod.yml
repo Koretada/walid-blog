@@ -1,0 +1,29 @@
+# Compose de PRODUCTION : utilisation de l'image publiée sur GHCR.
+#
+#   # Dernière image construite depuis `main`
+#   docker compose -f docker/docker-compose.prod.yml pull
+#   docker compose -f docker/docker-compose.prod.yml up -d
+#
+#   # Épingler une version précise (rollback, traçabilité)
+#   TAG=sha-a1b2c3d docker compose -f docker/docker-compose.prod.yml up -d
+#
+# Variables :
+#   IMAGE  (défaut : ghcr.io/koretada/walid-blog)
+#   TAG    (défaut : latest)
+
+name: walidblog-prod
+
+services:
+  web:
+    image: ${IMAGE:-ghcr.io/koretada/walid-blog}:${TAG:-latest}
+    container_name: walidblog
+    ports:
+      - '8080:8080'
+    restart: unless-stopped
+    pull_policy: always
+    healthcheck:
+      test: ['CMD', 'wget', '-q', '--spider', 'http://127.0.0.1:8080/']
+      interval: 30s
+      timeout: 3s
+      retries: 3
+      start_period: 5s
