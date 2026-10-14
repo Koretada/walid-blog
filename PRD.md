@@ -300,6 +300,26 @@ Dépôt Git
 - **Cache de build** (`type=gha`) : la couche `npm ci` n'est pas rejouée à chaque publication.
 - **Validation continue** : la CI construit et **teste l'image** (smoke test HTTP sur `:8080`) avant tout merge.
 
+#### 7.4.2 Déploiement sur Kubernetes (ArgoCD / GitOps)
+
+Le blog peut être déployé sur un cluster Kubernetes via **ArgoCD**, en GitOps : Git reste la
+source de vérité, ArgoCD réconcilie le cluster en continu.
+
+```text
+merge sur main
+   └── publish.yml
+         ├─ build + push de l'image        → ghcr.io/<owner>/<repo>:sha-<court>
+         └─ commit du tag dans l'overlay   → k8s/overlays/prod/kustomization.yaml
+                    │
+                    └──► ArgoCD (selfHeal + prune) ──► Deployment → Service → Ingress
+```
+
+- **Manifests** : `k8s/base/` (Deployment, Service, Ingress) + `k8s/overlays/prod/` (Kustomize).
+- **Point d'entrée** : une `Application` ArgoCD (`k8s/argocd/application.yaml`) bootstrapée une fois, puis pilotée par Git.
+- **Tag d'image immuable** (`sha-<court>`) : le rollback se fait par `git revert` du commit de bump, ou via l'historique ArgoCD.
+- **Anti-boucle** : le commit de bump porte `[skip ci]`, ce qui évite de relancer la CI qui l'a produit.
+- **Disponibilité** : 2 replicas et `maxUnavailable: 0` → aucune coupure pendant un rolling update.
+
 ### 7.5 Environnements
 
 | Environnement | Déclencheur | URL |

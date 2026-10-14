@@ -151,6 +151,20 @@ L'image est autonome : poussez-la sur un registre (Docker Hub, GitHub Container 
 puis exécutez-la où vous voulez (VPS, Kubernetes, PaaS). Le **TLS** est à terminer en amont
 via un reverse proxy / un ingress.
 
+### Kubernetes (ArgoCD / GitOps)
+
+Pour un déploiement GitOps sur Kubernetes, les manifests sont dans [`k8s/`](./k8s) :
+`Deployment`, `Service`, `Ingress` (Kustomize base + overlay) et une `Application` ArgoCD.
+La CI reporte automatiquement le tag de l'image dans l'overlay de production, et ArgoCD
+synchronise le cluster.
+
+```bash
+kubectl apply -f k8s/argocd/application.yaml   # bootstrap, une seule fois
+kubectl kustomize k8s/overlays/prod            # voir le rendu local
+```
+
+> Détails, cycle de publication et dépannage : [`k8s/README.md`](./k8s/README.md).
+
 ---
 
 ## Publication & mise à jour
@@ -167,7 +181,9 @@ un nouvel article produit une nouvelle image, ce qui garantit un rollback déter
 | Valider | CI (`ci.yml`) | Pull Request |
 | Fusionner | `main` | manuel |
 | **Construire + publier l'image** | `publish.yml` → GHCR | merge sur `main` (ou tag `v*`) |
-| **Mettre à jour le serveur** | hôte | `docker compose pull && up -d` |
+| **Bumper le tag dans les manifests** | `publish.yml` (commit Git) | automatique |
+| **Synchroniser le cluster** | ArgoCD | automatique |
+| **Mettre à jour un hôte Docker** | serveur | `docker compose pull && up -d` |
 
 ### Tags produits
 

@@ -14,7 +14,8 @@ concurrency:
   cancel-in-progress: false
 
 permissions:
-  contents: read
+  # contents: write → nécessaire pour committer le bump du tag (boucle GitOps)
+  contents: write
   packages: write
 
 jobs:
@@ -68,3 +69,30 @@ jobs:
             echo "${{ steps.meta.outputs.tags }}"
             echo '```'
           } >> "$GITHUB_STEP_SUMMARY"
+
+      # ---------------------------------------------------------------------
+      # Boucle GitOps : on reporte dans Git le tag de l'image fraîchement
+      # publiée. ArgoCD détectera ce commit et synchronisera le cluster.
+      #
+      # Le suffixe `[skip ci]` évite que ce commit ne relance la CI en boucle.
+      # ---------------------------------------------------------------------
+      - name: Bump de l'image dans l'overlay prod (GitOps)
+        if: github.ref == 'refs/heads/main'
+        run: |
+          set -euo pipefail
+
+          TAG="sha-$(echo "${GITHUB_SHA}" | cut -c1-7)"
+          FILE="k8s/overlays/prod/kustomization.yaml"
+
+          if grep -q "newTag: ${TAG}" "${FILE}"; then
+            echo "Le manifeste référence déjà ${TAG} — rien à faire."
+            exit 0
+          fi
+
+          sed -i "s|newTag: .*|newTag: ${TAG}|" "${FILE}"
+
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add "${FILE}"
+          git commit -m "chore(deploy): walid-blog ${TAG} [skip ci]"
+          git push

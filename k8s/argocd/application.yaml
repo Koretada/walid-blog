@@ -1,0 +1,40 @@
+# Manifeste ArgoCD du blog.
+#
+# À appliquer UNE SEULE FOIS, manuellement : ArgoCD ne peut pas s'auto-déclarer
+# lui-même ("bootstrap"). Ensuite, c'est ArgoCD qui pilote tout depuis Git.
+#
+#   kubectl apply -f k8s/argocd/application.yaml
+#
+# Puis : suivre l'état avec
+#   kubectl -n argocd get application walid-blog
+#   argocd app get walid-blog
+apiVersion: argoproj.io/v1alpha1
+kind: Application
+metadata:
+  name: walid-blog
+  namespace: argocd
+  finalizers:
+    # Supprime les ressources du cluster si l'Application est supprimée
+    - resources-finalizer.argocd.argoproj.io
+spec:
+  project: default
+  source:
+    repoURL: https://github.com/Koretada/walid-blog.git
+    targetRevision: HEAD
+    path: k8s/overlays/prod
+  destination:
+    server: https://kubernetes.default.svc
+    namespace: walid-blog
+  syncPolicy:
+    automated:
+      prune: true
+      selfHeal: true
+    syncOptions:
+      - CreateNamespace=true
+      - ServerSideApply=true
+    retry:
+      limit: 5
+      backoff:
+        duration: 10s
+        factor: 2
+        maxDuration: 3m
