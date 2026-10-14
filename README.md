@@ -8,7 +8,7 @@ générés en site statique par **Astro**, et déployés automatiquement.
 - **Contenu** : Markdown + MDX, Content Collections validées par Zod
 - **Style** : Tailwind CSS v4 + plugin Typography
 - **Recherche** : Pagefind (index statique, sans backend)
-- **Hébergement** : AWS S3 + CloudFront (voir [`terraform/`](./terraform))
+- **Hébergement** : site 100 % statique, déployé sur **Cloudflare Pages**
 - **CI/CD** : GitHub Actions (lint, types, build, Lighthouse, liens, déploiement)
 
 > Le cahier des charges complet est dans [`PRD.md`](./PRD.md).
@@ -97,7 +97,6 @@ walidblog/
 │   ├── utils/             # helpers (dates, posts, taxonomie, SEO, OG)
 │   ├── consts.ts          # configuration éditoriale & SEO
 │   └── content.config.ts  # schémas Zod des collections
-├── terraform/             # infrastructure AWS (S3, CloudFront, ACM, Route53, IAM)
 ├── astro.config.mjs
 ├── PRD.md                 # cahier des charges
 └── README.md
@@ -120,24 +119,29 @@ Généré automatiquement au build :
 
 ## Déploiement
 
+Le build produit `dist/` : un site **100 % statique**. N'importe quel hébergeur de fichiers
+statiques convient. La configuration fournie cible **Cloudflare Pages** (intégration Git,
+previews par PR) — **aucun bucket, aucun rôle cloud, aucune infrastructure à gérer**.
+
 | Environnement | Déclencheur | Cible |
 | --- | --- | --- |
 | Local | `npm run dev` | `http://localhost:4321` |
-| Preview | Pull Request | Cloudflare Pages (optionnel, cf. `preview.yml`) |
-| Production | Merge sur `main` | AWS S3 + CloudFront (OIDC) |
+| Preview | Pull Request | Cloudflare Pages (`.github/workflows/preview.yml`) |
+| Production | Merge sur `main` | Cloudflare Pages (`.github/workflows/deploy.yml`) |
 
 ### Secrets/variables GitHub à configurer
 
 | Type | Nom | Description |
 | --- | --- | --- |
-| secret | `AWS_ROLE_ARN` | ARN du rôle IAM (`terraform output deploy_role_arn`) |
-| variable | `AWS_REGION` | Région AWS (ex. `eu-west-3`) |
-| variable | `AWS_BUCKET` | Bucket S3 cible (`terraform output bucket_name`) |
-| variable | `CLOUDFRONT_DISTRIBUTION_ID` | ID de distribution (`terraform output cloudfront_distribution_id`) |
-| secret | `CLOUDFLARE_API_TOKEN` | *(optionnel)* pour les previews |
-| secret | `CLOUDFLARE_ACCOUNT_ID` | *(optionnel)* pour les previews |
+| secret | `CLOUDFLARE_API_TOKEN` | Jeton API Cloudflare (permission *Cloudflare Pages: Edit*) |
+| secret | `CLOUDFLARE_ACCOUNT_ID` | Identifiant du compte Cloudflare |
+| variable | `CLOUDFLARE_PROJECT_NAME` | *(optionnel)* Nom du projet Pages — défaut : `walidblog` |
 
-L'authentification AWS se fait par **OIDC** : aucune clé d'accès n'est stockée.
+### Héberger ailleurs
+
+Rien dans le code n'est lié à un fournisseur : `npm run build` génère un dossier `dist/`
+autonome. Adaptez l'étape de déploiement de `deploy.yml` à votre hébergeur (Netlify,
+GitHub Pages, hébergement mutualisé, serveur web…), ou déployez-le manuellement.
 
 ---
 

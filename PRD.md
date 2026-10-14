@@ -60,7 +60,7 @@ Le choix d'Astro garantit des performances élevées (site statique, quasi zéro
 - [ ] **G3** — Offrir un *preview deployment* par Pull Request pour relire un article en conditions réelles.
 - [ ] **G4** — Atteindre d'excellents scores techniques (Lighthouse ≥ 95 sur Perf/SEO/Best Practices/A11y).
 - [ ] **G5** — Rendre le site **découvrable** : sitemap, RSS, Open Graph, données structurées (JSON-LD), indexation rapide.
-- [ ] **G6** — Héberger le site à coût quasi nul, en infrastructure *as code* (Terraform).
+- [ ] **G6** — Héberger le site à coût quasi nul sur un hébergeur statique, sans infrastructure à administrer (ni serveur, ni bucket, ni base de données).
 - [ ] **G7** — Assurer une expérience de lecture technique de qualité : coloration syntaxique, blocs de code copiables, diagrammes, images optimisées.
 
 ### 3.2 Non-objectifs (Non-goals) — hors périmètre V1
@@ -238,7 +238,6 @@ walidblog/
 │   ├── styles/global.css
 │   ├── utils/                     # helpers (dates, reading time, slug)
 │   └── content.config.ts          # schémas Zod des collections
-├── terraform/                     # IaC (S3 + CloudFront + Route53 + ACM)
 ├── astro.config.mjs
 ├── package.json
 ├── tsconfig.json
@@ -266,38 +265,43 @@ walidblog/
    ▼  merge sur main
  [CD] deploy.yml
    ├─ npm ci && npm run build
-   ├─ aws s3 sync ./dist s3://<bucket> --delete
-   └─ CloudFront invalidation
+   └─ Déploiement sur l'hébergeur statique (Cloudflare Pages)
 ```
 
 - **Branches** : `main` (production) · `feat/*`, `fix/*`, `content/*` (travail).
 - **Commits** : convention `feat:`, `fix:`, `add:`, `docs:` (alignée sur les autres repos).
-- **Secrets** : jamais dans Git — via **GitHub OIDC** (pas de clés AWS statiques) ou secrets de repo.
+- **Secrets** : jamais dans Git — stockés dans les **secrets GitHub Actions** (jeton d'accès de l'hébergeur).
 
-### 7.4 Hébergement & Infrastructure (Terraform)
+### 7.4 Hébergement (site statique)
 
-Aligné sur le profil Cloud/DevOps de l'auteur : hébergement **AWS statique**, infra décrite **as code**.
+Le build produit `dist/` : un ensemble de **fichiers statiques**. Il n'y a **aucun serveur,
+aucune base de données, aucun bucket cloud à administrer**. L'hébergement cible est un
+hébergeur statique **intégré à Git** — **Cloudflare Pages** dans la configuration livrée.
 
 ```text
-Route53 (walidblog.<domain>)
+Dépôt Git (main)
    │
-   ├── ACM (certificat TLS, us-east-1 pour CloudFront)
-   │
-   └── CloudFront (CDN + HTTPS + cache)
+   └── GitHub Actions : npm run build → dist/
           │
-          └── S3 Bucket (privé, OAC) — fichiers statiques du build Astro
+          └── Hébergeur statique (CDN + HTTPS + previews par PR)
                  │
-                 └── GitHub Actions (OIDC → rôle IAM restreint : s3:PutObject, cloudfront:CreateInvalidation)
+                 └── Nom de domaine personnalisé
 ```
 
-Ressources Terraform prévues : `aws_s3_bucket` (+ policy OAC), `aws_cloudfront_distribution`, `aws_route53_record`, `aws_acm_certificate` (+ validation), `aws_iam_role` (OIDC GitHub). Alternative acceptée pour la V1 si priorité vitesse : **Cloudflare Pages** ou **Netlify** (déploiement Git natif, previews par PR).
+- **Aucune infrastructure à gérer** : le fournisseur assure le CDN, le certificat TLS et la distribution.
+- **Previews automatiques par Pull Request** (URL unique par branche).
+- **Hébergeur interchangeable** : `dist/` se déploie tel quel sur Netlify, GitHub Pages, un hébergement mutualisé ou n'importe quel serveur web statique.
+- **Coût** : le palier gratuit suffit largement pour un blog personnel.
+
+> Choix assumé : **pas de S3 privé, pas d'OAC, pas de Terraform**. Un blog statique n'a pas
+> besoin de ce niveau d'infrastructure ; l'ajouter n'aurait apporté que de la complexité.
 
 ### 7.5 Environnements
 
 | Environnement | Déclencheur | URL |
 |---|---|---|
 | **Local** | `npm run dev` | `http://localhost:4321` |
-| **Preview** | PR ouverte | URL éphémère (Cloudflare Pages / Netlify / S3+CF) |
+| **Preview** | PR ouverte | URL éphémère fournie par l'hébergeur (Cloudflare Pages) |
 | **Production** | merge `main` | `https://walidblog.<domain>` |
 
 ---
@@ -365,17 +369,17 @@ Ressources Terraform prévues : `aws_s3_bucket` (+ policy OAC), `aws_cloudfront_
 
 ### 9.5 Coût
 
-- [ ] Coût d'hébergement cible : **≈ 0–2 €/mois** (S3 + CloudFront dans le free tier ou usage minimal).
-- [ ] Aucune base de données, aucun serveur applicatif permanent.
+- [ ] Coût d'hébergement cible : **≈ 0 €/mois** (palier gratuit d'un hébergeur statique).
+- [ ] Aucune base de données, aucun serveur applicatif permanent, aucun bucket à administrer.
 
 ---
 
 ## 10. Sécurité & Conformité
 
-- [ ] Bucket S3 **privé** + accès uniquement via **CloudFront OAC**.
-- [ ] HTTPS obligatoire (redirect HTTP→HTTPS, HSTS).
-- [ ] En-têtes de sécurité via CloudFront *response headers policy* : `Content-Security-Policy`, `X-Content-Type-Options`, `Referrer-Policy`, `X-Frame-Options`.
-- [ ] **Aucun secret** dans le dépôt ; déploiement via **OIDC** (pas de clés AWS longue durée).
+- [ ] HTTPS obligatoire (fourni par l'hébergeur, redirection HTTP→HTTPS, HSTS).
+- [ ] En-têtes de sécurité via le fichier `public/_headers` de l'hébergeur statique : `Content-Security-Policy`, `X-Content-Type-Options`, `Referrer-Policy`, `X-Frame-Options`.
+- [ ] **Aucun secret** dans le dépôt ; le déploiement s'appuie sur un jeton stocké dans les secrets GitHub.
+- [ ] Aucune infrastructure à administrer (ni serveur, ni bucket, ni base de données).
 - [ ] RGPD : pas de cookie de tracking tiers par défaut ; bannière inutile si analytics sans cookies (Plausible/Umami) — à confirmer selon l'outil retenu.
 - [ ] `LICENSE` (contenu : à définir, ex. CC BY-NC-SA ; code : MIT).
 
@@ -416,7 +420,7 @@ Ressources Terraform prévues : `aws_s3_bucket` (+ policy OAC), `aws_cloudfront_
 | **M0 — Bootstrap** | `git init`, Astro + Tailwind, structure dépôt, Content Collections, article « Hello World » | Base qui build en local |
 | **M1 — Cœur éditorial** | Layout article, TOC, Shiki, callouts, tags/catégories, pagination, À propos | Blog navigable |
 | **M2 — SEO & diffusion** | Sitemap, RSS, OG images, JSON-LD, robots.txt, 404 | Découvrable |
-| **M3 — CI/CD & hébergement** | GitHub Actions (CI + CD), Terraform S3+CloudFront+Route53+ACM, domaine, HTTPS | En production |
+| **M3 — CI/CD & hébergement** | GitHub Actions (CI + CD), déploiement sur hébergeur statique, domaine, HTTPS | En production |
 | **M4 — Industrialisation** | Preview deploys, Lighthouse CI, link-check, Dependabot | Qualité continue |
 | **M5 — Polish (P1/P2)** | Recherche Pagefind, dark mode, giscus, analytics | Engagement |
 
@@ -446,11 +450,11 @@ Ressources Terraform prévues : `aws_s3_bucket` (+ policy OAC), `aws_cloudfront_
 |---|---|---|---|
 | Manque de régularité de publication | Moyenne | Élevé | Backlog d'articles, templates, cadence 1 article/semaine |
 | SEO lent à décoller | Élevée | Moyen | Recherche de mots-clés, maillage interne, partage communautés, régularité |
-| Complexité IaC AWS (ACM/CloudFront) | Moyenne | Moyen | Alternative Cloudflare Pages/Netlify en V1 ; Terraform ensuite |
+| Configuration hébergeur / domaine | Moyenne | Moyen | Hébergeur statique géré (Cloudflare Pages) : CDN, TLS et DNS inclus |
 | Dérive des dépendances | Moyenne | Faible | Dependabot + build CI |
-| Fuite de secret / clé AWS | Faible | Élevé | OIDC uniquement, pas de clés statiques, scan de secrets |
+| Fuite du jeton de déploiement | Faible | Élevé | Jeton en secret GitHub à portée limitée, rotation, scan de secrets |
 | Articles trop techniques, peu accessibles | Moyenne | Moyen | Intro vulgarisée, TL;DR, schémas, exemples concrets |
-| Coût CDN imprévu (pic de trafic) | Faible | Faible | Cache CloudFront agressif, budget alarm AWS |
+| Coût d'hébergement imprévu (pic de trafic) | Faible | Faible | Palier gratuit de l'hébergeur statique + cache CDN par défaut |
 
 ---
 
@@ -521,9 +525,9 @@ terraform init && terraform apply
 
 ### 17.3 Dépendances externes / comptes requis
 
-- Compte **GitHub** (dépôt + Actions + OIDC).
-- Nom de **domaine** (Route53 ou registrar externe).
-- Compte **AWS** (S3, CloudFront, Route53, ACM) — ou Cloudflare/Netlify.
+- Compte **GitHub** (dépôt + Actions).
+- Compte **Cloudflare** (Pages) — ou tout autre hébergeur statique.
+- Nom de **domaine** (registrar externe, DNS géré par l'hébergeur ou ailleurs).
 - Compte **Google Search Console** (+ Bing Webmaster Tools).
 - Outil **analytics** (Plausible / Umami / Cloudflare).
 
@@ -532,8 +536,8 @@ terraform init && terraform apply
 - **SSG** : Static Site Generator — génère du HTML statique au build.
 - **Docs-as-code** : gérer la documentation/contenu comme du code (Git, PR, CI/CD).
 - **Content Collections** : système Astro de contenu typé et validé par schéma.
-- **OAC** : Origin Access Control — accès sécurisé S3 via CloudFront.
-- **OIDC** : OpenID Connect — authentification GitHub→AWS sans clés statiques.
+- **Hébergeur statique** : service diffusant des fichiers pré-générés via un CDN (ex. Cloudflare Pages, Netlify, GitHub Pages).
+- **Jeton d'API** : clé d'accès utilisée par la CI pour publier le site, stockée dans les secrets GitHub.
 - **Core Web Vitals** : métriques Google de performance/UX (LCP, CLS, INP).
 
 ---

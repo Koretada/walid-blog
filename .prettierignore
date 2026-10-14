@@ -4,9 +4,8 @@ node_modules/
 .astro/
 package-lock.json
 
-# Assets statiques & infra (non formatés par Prettier)
+# Assets statiques (non formatés par Prettier)
 public/
-terraform/
 
 # Documentation de projet
 PRD.md

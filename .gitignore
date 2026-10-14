@@ -24,16 +24,3 @@ pnpm-debug.log*
 .idea/
 .vscode/*
 !.vscode/extensions.json
-
-# --- Terraform ---
-terraform/.terraform/
-terraform/.terraform.lock.hcl
-terraform/*.tfstate
-terraform/*.tfstate.*
-terraform/crash.log
-terraform/crash.*.log
-terraform/*.tfvars
-terraform/*.tfvars.json
-!terraform/terraform.tfvars.example
-terraform/.terraformrc
-terraform/terraform.rc
