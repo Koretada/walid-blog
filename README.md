@@ -2,14 +2,14 @@
 
 Blog IT (**Cloud · DevOps · Infrastructure-as-Code · Observabilité**) construit en
 **documentation as code** : les articles sont des fichiers Markdown/MDX versionnés dans Git,
-générés en site statique par **Astro**, et déployés automatiquement.
+générés en site statique par **Astro**, puis **conteneurisés** pour être servis par Nginx.
 
 - **Framework** : [Astro](https://astro.build) (SSG, quasi zéro JS)
 - **Contenu** : Markdown + MDX, Content Collections validées par Zod
 - **Style** : Tailwind CSS v4 + plugin Typography
 - **Recherche** : Pagefind (index statique, sans backend)
-- **Hébergement** : site 100 % statique, déployé sur **Cloudflare Pages**
-- **CI/CD** : GitHub Actions (lint, types, build, Lighthouse, liens, déploiement)
+- **Conteneurisation** : Docker + Nginx (voir [`docker/`](./docker))
+- **CI** : GitHub Actions (lint, types, build, Lighthouse, liens)
 
 > Le cahier des charges complet est dans [`PRD.md`](./PRD.md).
 
@@ -84,7 +84,7 @@ import Callout from '../../components/Callout.astro';
 
 ```text
 walidblog/
-├── .github/workflows/     # CI, déploiement production, preview
+├── .github/workflows/     # CI (lint, types, build, Lighthouse, liens)
 ├── public/                # assets statiques (favicon, images, robots)
 ├── src/
 │   ├── components/        # Header, Footer, PostCard, BaseHead, Callout, TOC...
@@ -97,7 +97,9 @@ walidblog/
 │   ├── utils/             # helpers (dates, posts, taxonomie, SEO, OG)
 │   ├── consts.ts          # configuration éditoriale & SEO
 │   └── content.config.ts  # schémas Zod des collections
+├── docker/                # application conteneurisée (Dockerfile, Nginx, Compose)
 ├── astro.config.mjs
+├── .dockerignore
 ├── PRD.md                 # cahier des charges
 └── README.md
 ```
@@ -117,31 +119,37 @@ Généré automatiquement au build :
 
 ---
 
-## Déploiement
+## Docker (application conteneurisée)
 
-Le build produit `dist/` : un site **100 % statique**. N'importe quel hébergeur de fichiers
-statiques convient. La configuration fournie cible **Cloudflare Pages** (intégration Git,
-previews par PR) — **aucun bucket, aucun rôle cloud, aucune infrastructure à gérer**.
+Le blog est livré sous forme d'**image Docker** : le site statique est construit dans une
+première étape, puis servi par **Nginx**.
 
-| Environnement | Déclencheur | Cible |
+```bash
+# Build + run avec Compose (recommandé)
+docker compose -f docker/docker-compose.yml up --build
+# → http://localhost:8080
+
+# Ou manuellement (le contexte de build est la racine du dépôt)
+docker build -f docker/Dockerfile -t walidblog .
+docker run --rm -p 8080:8080 walidblog
+```
+
+| Étape | Image de base | Rôle |
 | --- | --- | --- |
-| Local | `npm run dev` | `http://localhost:4321` |
-| Preview | Pull Request | Cloudflare Pages (`.github/workflows/preview.yml`) |
-| Production | Merge sur `main` | Cloudflare Pages (`.github/workflows/deploy.yml`) |
+| Build | `node:22-bookworm-slim` | `npm ci` + `npm run build` (Astro + Pagefind) |
+| Runtime | `nginx:1.27-alpine` | Sert `dist/` sur le port `8080` |
 
-### Secrets/variables GitHub à configurer
+`docker/nginx.conf` fournit les **en-têtes de sécurité** (CSP, HSTS, `X-Frame-Options`…), la
+compression gzip, le cache des assets fingerprintés et la page 404.
 
-| Type | Nom | Description |
-| --- | --- | --- |
-| secret | `CLOUDFLARE_API_TOKEN` | Jeton API Cloudflare (permission *Cloudflare Pages: Edit*) |
-| secret | `CLOUDFLARE_ACCOUNT_ID` | Identifiant du compte Cloudflare |
-| variable | `CLOUDFLARE_PROJECT_NAME` | *(optionnel)* Nom du projet Pages — défaut : `walidblog` |
+> Détails, justification du choix Debian (Pagefind exige glibc) et variantes :
+> [`docker/README.md`](./docker/README.md).
 
-### Héberger ailleurs
+### Publier l'image
 
-Rien dans le code n'est lié à un fournisseur : `npm run build` génère un dossier `dist/`
-autonome. Adaptez l'étape de déploiement de `deploy.yml` à votre hébergeur (Netlify,
-GitHub Pages, hébergement mutualisé, serveur web…), ou déployez-le manuellement.
+L'image est autonome : poussez-la sur un registre (Docker Hub, GitHub Container Registry…)
+puis exécutez-la où vous voulez (VPS, Kubernetes, PaaS). Le **TLS** est à terminer en amont
+via un reverse proxy / un ingress.
 
 ---
 

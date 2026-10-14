@@ -11,5 +11,10 @@ public/
 PRD.md
 README.md
 
+# Conteneurisation (fichiers non gérés par Prettier)
+docker/Dockerfile
+docker/nginx.conf
+docker/README.md
+
 # Workflows (YAML déjà lisible)
 # .github/

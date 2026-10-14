@@ -1,0 +1,94 @@
+# walidblog — application conteneurisée
+
+Image Docker de production du blog : le site statique **Astro** est construit dans une
+première étape, puis servi par **Nginx** dans une image finale légère (sans Node).
+
+## Sommaire du dossier
+
+| Fichier | Rôle |
+| --- | --- |
+| `Dockerfile` | Build multi-étapes : `node:22-bookworm-slim` (build) → `nginx:1.27-alpine` (runtime) |
+| `nginx.conf` | Configuration Nginx : en-têtes de sécurité, compression, cache, 404 |
+| `docker-compose.yml` | Lancement en une commande (`docker compose up`) |
+
+> Le fichier `.dockerignore` se trouve **à la racine du dépôt** : Docker ne le lit qu'à
+> l'endroit du contexte de build, qui est la racine (le build a besoin de `src/`, `public/`…).
+
+## Démarrage
+
+```bash
+# Option 1 — Docker Compose (recommandé)
+docker compose -f docker/docker-compose.yml up --build
+
+# Option 2 — build + run manuels
+docker build -f docker/Dockerfile -t walidblog .
+docker run --rm -p 8080:8080 walidblog
+```
+
+Le site est alors disponible sur **<http://localhost:8080>**.
+
+## Ce que fait l'image
+
+```text
+Étape 1 — build (node:22-bookworm-slim)
+   npm ci                    → dépendances (couche mise en cache via le lockfile)
+   COPY . .                  → code + contenu
+   npm run build             → astro build && pagefind --site dist
+   │
+   └──► /app/dist
+Étape 2 — runtime (nginx:1.27-alpine)
+   COPY nginx.conf                  → /etc/nginx/conf.d/default.conf
+   COPY --from=build /app/dist      → /usr/share/nginx/html
+   EXPOSE 8080 + HEALTHCHECK
+```
+
+Résultat : une image finale de l'ordre de **quelques dizaines de Mo**, sans Node.js, sans
+dépendance applicative, exposant uniquement des fichiers statiques.
+
+## Détails techniques
+
+### Pourquoi Debian et pas Alpine pour l'étape de build ?
+
+**Pagefind ne publie que des binaires glibc** (`@pagefind/linux-x64`, sans variante musl et
+sans champ `libc` déclaré). Sur une base Alpine (musl), `npm ci` installerait tout de même
+ce binaire, et `npm run build` échouerait à l'exécution. L'étape de build utilise donc
+`node:22-bookworm-slim` (glibc). L'étape **runtime** peut rester sur Alpine : elle se
+contente de servir des fichiers statiques.
+
+### Port 8080
+
+Le conteneur écoute sur **8080** (port non privilégié), ce qui permet — si besoin — de faire
+tourner Nginx en utilisateur non-root :
+
+```dockerfile
+FROM nginxinc/nginx-unprivileged:1.27-alpine
+```
+
+### En-têtes servis par Nginx
+
+`nginx.conf` applique, sur toutes les réponses :
+
+- `Content-Security-Policy`, `X-Content-Type-Options`, `X-Frame-Options`,
+  `Referrer-Policy`, `Permissions-Policy` ;
+- compression **gzip** sur HTML/CSS/JS/JSON/SVG/RSS ;
+- **cache long** (`expires 1y`) pour `/_astro/*` et `/pagefind/*` (assets fingerprintés),
+  `30d` pour les images ;
+- `error_page 404 → /404.html` (page générée par Astro).
+
+> Les en-têtes sont déclarés au niveau `server` et utilisent `expires` dans les `location` :
+> `add_header` dans un `location` écraserait l'héritage des en-têtes de sécurité.
+
+### Reverse proxy / HTTPS
+
+Cette image sert du **HTTP** sur `8080`. Placez-la derrière un reverse proxy (Traefik,
+Caddy, Nginx, un load balancer…) pour terminer le TLS, ou exposez-la directement si
+votre infrastructure s'en charge.
+
+## Vérification
+
+```bash
+docker run -d --name walidblog -p 8080:8080 walidblog
+curl -sSI http://localhost:8080/ | head -12    # statut, CSP, cache…
+docker inspect --format '{{.State.Health.Status}}' walidblog
+docker rm -f walidblog
+```

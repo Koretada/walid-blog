@@ -1,0 +1,27 @@
+# Contexte envoyé au démon Docker lors du build.
+# Tout ce qui est inutile pour `npm ci` + `npm run build` est exclu.
+
+# Dépendances et artefacts (réinstallés / régénérés dans l'image)
+node_modules/
+dist/
+.astro/
+
+# Outils et métadonnées de dépôt
+.git/
+.github/
+.vscode/
+.idea/
+.editorconfig
+.prettierignore
+.prettierrc.json
+.lighthouserc.json
+
+# Documentation (non nécessaire au build)
+README.md
+PRD.md
+LICENSE
+CONTENT-LICENSE.md
+
+# Divers
+.DS_Store
+*.log

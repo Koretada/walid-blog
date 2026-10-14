@@ -238,6 +238,7 @@ walidblog/
 │   ├── styles/global.css
 │   ├── utils/                     # helpers (dates, reading time, slug)
 │   └── content.config.ts          # schémas Zod des collections
+├── docker/                        # application conteneurisée (Dockerfile, Nginx, Compose)
 ├── astro.config.mjs
 ├── package.json
 ├── tsconfig.json
@@ -247,62 +248,56 @@ walidblog/
 └── PRD.md
 ```
 
-### 7.3 Pipeline CI/CD (Docs-as-Code)
+### 7.3 Pipeline CI (Docs-as-Code)
 
 ```text
  Auteur
    │  git commit / git push (branche feat/article-xxx)
    ▼
  Pull Request ──► [CI] ci.yml
-   │              ├─ npm ci
-   │              ├─ npm run lint        (ESLint + Prettier)
-   │              ├─ npm run build        (valide frontmatter + rendu)
-   │              ├─ link-check (liens internes/externes)
-   │              └─ Lighthouse CI (seuils)
-   │
-   ├─► Preview Deployment (URL unique par PR)
-   │
-   ▼  merge sur main
- [CD] deploy.yml
-   ├─ npm ci && npm run build
-   └─ Déploiement sur l'hébergeur statique (Cloudflare Pages)
+                  ├─ npm ci
+                  ├─ npm run lint        (Prettier)
+                  ├─ npm run check       (astro check : types + diagnostics)
+                  ├─ npm run build       (valide frontmatter + rendu + index Pagefind)
+                  ├─ link-check (liens des articles)
+                  └─ Lighthouse CI (seuils, informatif)
 ```
 
-- **Branches** : `main` (production) · `feat/*`, `fix/*`, `content/*` (travail).
+- **Branches** : `main` · `feat/*`, `fix/*`, `content/*` (travail).
 - **Commits** : convention `feat:`, `fix:`, `add:`, `docs:` (alignée sur les autres repos).
-- **Secrets** : jamais dans Git — stockés dans les **secrets GitHub Actions** (jeton d'accès de l'hébergeur).
+- **Aucun secret** requis : la CI **valide** seulement, elle ne publie rien.
 
-### 7.4 Hébergement (site statique)
+### 7.4 Livraison : application conteneurisée (Docker)
 
-Le build produit `dist/` : un ensemble de **fichiers statiques**. Il n'y a **aucun serveur,
-aucune base de données, aucun bucket cloud à administrer**. L'hébergement cible est un
-hébergeur statique **intégré à Git** — **Cloudflare Pages** dans la configuration livrée.
+Le site est construit puis **empaqueté dans une image Docker** servie par Nginx. Il n'y a
+**aucun serveur applicatif, aucune base de données, aucun bucket cloud**.
 
 ```text
-Dépôt Git (main)
+Dépôt Git
    │
-   └── GitHub Actions : npm run build → dist/
-          │
-          └── Hébergeur statique (CDN + HTTPS + previews par PR)
+   └── docker build (multi-étapes)
+          ├─ étape 1 (node:22-bookworm-slim) : npm ci && npm run build → dist/
+          └─ étape 2 (nginx:1.27-alpine)     : dist/ → /usr/share/nginx/html
                  │
-                 └── Nom de domaine personnalisé
+                 └── Image « walidblog » (port 8080) → VPS, Kubernetes, PaaS…
 ```
 
-- **Aucune infrastructure à gérer** : le fournisseur assure le CDN, le certificat TLS et la distribution.
-- **Previews automatiques par Pull Request** (URL unique par branche).
-- **Hébergeur interchangeable** : `dist/` se déploie tel quel sur Netlify, GitHub Pages, un hébergement mutualisé ou n'importe quel serveur web statique.
-- **Coût** : le palier gratuit suffit largement pour un blog personnel.
+- **Portable** : l'image embarque tout (site + serveur) ; aucune dépendance à une plateforme d'hébergement.
+- **Légère** : l'étape finale ne contient ni Node.js ni dépendances applicatives, seulement Nginx et des fichiers statiques.
+- **En-têtes de sécurité** appliqués par `docker/nginx.conf` (CSP, HSTS, `X-Frame-Options`…).
+- **TLS** : terminé en amont par un reverse proxy / un ingress.
 
-> Choix assumé : **pas de S3 privé, pas d'OAC, pas de Terraform**. Un blog statique n'a pas
-> besoin de ce niveau d'infrastructure ; l'ajouter n'aurait apporté que de la complexité.
+> Choix assumé : **pas de S3 privé, pas d'OAC, pas de Terraform, pas de workflow de
+> déploiement**. Un blog statique n'a pas besoin de ce niveau d'infrastructure ; la livraison
+> passe par **une image Docker** exécutable n'importe où.
 
 ### 7.5 Environnements
 
 | Environnement | Déclencheur | URL |
 |---|---|---|
-| **Local** | `npm run dev` | `http://localhost:4321` |
-| **Preview** | PR ouverte | URL éphémère fournie par l'hébergeur (Cloudflare Pages) |
-| **Production** | merge `main` | `https://walidblog.<domain>` |
+| **Local (dev)** | `npm run dev` | `http://localhost:4321` |
+| **Local (build)** | `npm run preview` | `http://localhost:4321` |
+| **Conteneur** | `docker compose -f docker/docker-compose.yml up` | `http://localhost:8080` |
 
 ---
 
@@ -369,17 +364,17 @@ Dépôt Git (main)
 
 ### 9.5 Coût
 
-- [ ] Coût d'hébergement cible : **≈ 0 €/mois** (palier gratuit d'un hébergeur statique).
+- [ ] Coût d'exécution cible : **≈ 0 €/mois** en local/conteneur ; ~5 €/mois sur un petit VPS.
 - [ ] Aucune base de données, aucun serveur applicatif permanent, aucun bucket à administrer.
 
 ---
 
 ## 10. Sécurité & Conformité
 
-- [ ] HTTPS obligatoire (fourni par l'hébergeur, redirection HTTP→HTTPS, HSTS).
-- [ ] En-têtes de sécurité via le fichier `public/_headers` de l'hébergeur statique : `Content-Security-Policy`, `X-Content-Type-Options`, `Referrer-Policy`, `X-Frame-Options`.
-- [ ] **Aucun secret** dans le dépôt ; le déploiement s'appuie sur un jeton stocké dans les secrets GitHub.
-- [ ] Aucune infrastructure à administrer (ni serveur, ni bucket, ni base de données).
+- [ ] HTTPS obligatoire (terminé en amont par un reverse proxy / un ingress).
+- [ ] En-têtes de sécurité appliqués par Nginx (`docker/nginx.conf`) : `Content-Security-Policy`, `X-Content-Type-Options`, `Referrer-Policy`, `X-Frame-Options`, `Permissions-Policy`.
+- [ ] **Aucun secret** dans le dépôt ; la CI ne publie rien (elle ne fait que valider).
+- [ ] Aucune infrastructure à administrer (ni serveur applicatif, ni bucket, ni base de données).
 - [ ] RGPD : pas de cookie de tracking tiers par défaut ; bannière inutile si analytics sans cookies (Plausible/Umami) — à confirmer selon l'outil retenu.
 - [ ] `LICENSE` (contenu : à définir, ex. CC BY-NC-SA ; code : MIT).
 
@@ -420,8 +415,8 @@ Dépôt Git (main)
 | **M0 — Bootstrap** | `git init`, Astro + Tailwind, structure dépôt, Content Collections, article « Hello World » | Base qui build en local |
 | **M1 — Cœur éditorial** | Layout article, TOC, Shiki, callouts, tags/catégories, pagination, À propos | Blog navigable |
 | **M2 — SEO & diffusion** | Sitemap, RSS, OG images, JSON-LD, robots.txt, 404 | Découvrable |
-| **M3 — CI/CD & hébergement** | GitHub Actions (CI + CD), déploiement sur hébergeur statique, domaine, HTTPS | En production |
-| **M4 — Industrialisation** | Preview deploys, Lighthouse CI, link-check, Dependabot | Qualité continue |
+| **M3 — Conteneurisation** | Dockerfile multi-étapes (build + Nginx), `docker-compose.yml`, en-têtes de sécurité | Application livrable |
+| **M4 — Industrialisation** | CI renforcée (check, Lighthouse CI, link-check), Dependabot | Qualité continue |
 | **M5 — Polish (P1/P2)** | Recherche Pagefind, dark mode, giscus, analytics | Engagement |
 
 **Definition of Ready (article)** : sujet + plan + mot-clé cible définis, image de couverture disponible.
@@ -450,11 +445,11 @@ Dépôt Git (main)
 |---|---|---|---|
 | Manque de régularité de publication | Moyenne | Élevé | Backlog d'articles, templates, cadence 1 article/semaine |
 | SEO lent à décoller | Élevée | Moyen | Recherche de mots-clés, maillage interne, partage communautés, régularité |
-| Configuration hébergeur / domaine | Moyenne | Moyen | Hébergeur statique géré (Cloudflare Pages) : CDN, TLS et DNS inclus |
+| Configuration TLS / reverse proxy | Moyenne | Moyen | Reverse proxy ou ingress en amont ; certificats automatiques |
 | Dérive des dépendances | Moyenne | Faible | Dependabot + build CI |
-| Fuite du jeton de déploiement | Faible | Élevé | Jeton en secret GitHub à portée limitée, rotation, scan de secrets |
+| Image de base vulnérable | Faible | Moyen | Images officielles épinglées, rebuild régulier, scan d'image |
 | Articles trop techniques, peu accessibles | Moyenne | Moyen | Intro vulgarisée, TL;DR, schémas, exemples concrets |
-| Coût d'hébergement imprévu (pic de trafic) | Faible | Faible | Palier gratuit de l'hébergeur statique + cache CDN par défaut |
+| Coût d'exécution imprévu (pic de trafic) | Faible | Faible | Serveur statique léger (Nginx), cache des assets |
 
 ---
 
@@ -467,9 +462,9 @@ Dépôt Git (main)
 - [ ] Pages : accueil, liste/pagination, article, tags, catégories, à propos, 404.
 - [ ] SEO : sitemap, RSS, OG/Twitter, JSON-LD, canonical, robots.txt.
 - [ ] Coloration syntaxique (Shiki) + TOC + callouts + images optimisées.
-- [ ] Pipeline CI (lint + build + link-check + Lighthouse) sur PR.
-- [ ] Déploiement auto en prod au merge `main`.
-- [ ] HTTPS + domaine personnalisé + en-têtes de sécurité.
+- [ ] Pipeline CI (lint + check + build + link-check + Lighthouse) sur PR.
+- [ ] Application conteneurisée : `docker build` reproductible, site servi par Nginx sur le port 8080.
+- [ ] En-têtes de sécurité servis par Nginx ; TLS terminé en amont.
 - [ ] Lighthouse ≥ 95 (Perf, SEO, A11y, Best Practices) sur mobile.
 - [ ] Analytics + Search Console opérationnels.
 - [ ] Ce PRD à jour et versionné dans le dépôt.
@@ -526,18 +521,19 @@ terraform init && terraform apply
 ### 17.3 Dépendances externes / comptes requis
 
 - Compte **GitHub** (dépôt + Actions).
-- Compte **Cloudflare** (Pages) — ou tout autre hébergeur statique.
-- Nom de **domaine** (registrar externe, DNS géré par l'hébergeur ou ailleurs).
+- **Docker** (local ou CI) pour construire l'image.
+- Hôte d'exécution : VPS, cluster Kubernetes ou PaaS — plus un nom de domaine.
 - Compte **Google Search Console** (+ Bing Webmaster Tools).
-- Outil **analytics** (Plausible / Umami / Cloudflare).
+- Outil **analytics** (Plausible / Umami).
 
 ### 17.4 Glossaire
 
 - **SSG** : Static Site Generator — génère du HTML statique au build.
 - **Docs-as-code** : gérer la documentation/contenu comme du code (Git, PR, CI/CD).
 - **Content Collections** : système Astro de contenu typé et validé par schéma.
-- **Hébergeur statique** : service diffusant des fichiers pré-générés via un CDN (ex. Cloudflare Pages, Netlify, GitHub Pages).
-- **Jeton d'API** : clé d'accès utilisée par la CI pour publier le site, stockée dans les secrets GitHub.
+- **Image Docker** : artefact immuable empaquetant le site et le serveur Nginx, exécutable partout où Docker tourne.
+- **Build multi-étapes** : Dockerfile en plusieurs `FROM`, dont seule la dernière étape est conservée dans l'image finale.
+- **Reverse proxy** : serveur placé devant le conteneur, chargé de terminer le TLS et de router le trafic.
 - **Core Web Vitals** : métriques Google de performance/UX (LCP, CLS, INP).
 
 ---
