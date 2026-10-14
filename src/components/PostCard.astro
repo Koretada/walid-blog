@@ -1,0 +1,44 @@
+---
+import type { BlogPost } from '../utils/posts';
+import FormattedDate from './FormattedDate.astro';
+import TagList from './TagList.astro';
+
+interface Props {
+  post: BlogPost;
+}
+
+const { post } = Astro.props;
+const { title, description, pubDate, cover, coverAlt, tags } = post.data;
+const href = `/blog/${post.id}`;
+---
+
+<article class="group flex flex-col overflow-hidden rounded-xl border border-slate-200 bg-white shadow-sm transition hover:shadow-md dark:border-slate-800 dark:bg-slate-900">
+  {cover && (
+    <a
+      href={href}
+      tabindex="-1"
+      aria-hidden="true"
+      class="block aspect-[16/9] overflow-hidden bg-slate-100 dark:bg-slate-800"
+    >
+      <img
+        src={cover}
+        alt={coverAlt ?? title}
+        loading="lazy"
+        decoding="async"
+        class="h-full w-full object-cover transition duration-300 group-hover:scale-105"
+      />
+    </a>
+  )}
+  <div class="flex flex-1 flex-col gap-3 p-5">
+    <p class="text-xs tracking-wide text-slate-500 uppercase dark:text-slate-400">
+      <FormattedDate date={pubDate} />
+    </p>
+    <h2 class="text-lg leading-snug font-semibold">
+      <a href={href} class="hover:text-sky-700 hover:underline dark:hover:text-sky-400">
+        {title}
+      </a>
+    </h2>
+    <p class="flex-1 text-sm text-slate-600 dark:text-slate-400">{description}</p>
+    <TagList tags={tags} />
+  </div>
+</article>

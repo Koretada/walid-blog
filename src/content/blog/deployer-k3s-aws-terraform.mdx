@@ -1,0 +1,185 @@
+---
+title: 'Déployer un cluster K3s sur AWS avec Terraform'
+description: 'Guide pas à pas pour provisionner un cluster K3s single-node sur AWS avec Terraform : VPC, EC2, security groups et cloud-init.'
+pubDate: 2026-10-14
+updatedDate: 2026-10-14
+author: 'Koretada'
+tags: ['kubernetes', 'terraform', 'aws', 'k3s']
+categories: ['Cloud']
+cover: '/images/k3s-aws.svg'
+coverAlt: 'Illustration « K3s sur AWS »'
+featured: true
+series: 'Terraform en pratique'
+keywords: ['k3s', 'terraform', 'aws', 'kubernetes', 'cloud-init']
+---
+
+import Callout from '../../components/Callout.astro';
+
+## TL;DR
+
+On provisionne avec Terraform un VPC, une instance EC2 et les règles de sécurité minimales, puis on installe K3s au premier démarrage via `cloud-init`. Résultat : un cluster Kubernetes léger, prêt en quelques minutes, sans orchestration manuelle.
+
+## Pourquoi K3s
+
+K3s est une distribution Kubernetes packagée en un binaire de quelques dizaines de mégaoctets. Elle embarque `containerd`, `flannel`, un `CoreDNS` et un `Traefik` par défaut. C'est un excellent terrain d'apprentissage : on manipule de vrais concepts Kubernetes avec une empreinte minimale.
+
+<Callout type="info" title="Ce que K3s n'est pas">
+  K3s reste Kubernetes. Les notions de `Pod`, `Deployment`, `Service` et `Ingress` sont identiques.
+  Ce qui change, c'est l'empaquetage et les valeurs par défaut.
+</Callout>
+
+## Architecture cible
+
+```text
+AWS (région eu-west-3)
+├── VPC 10.0.0.0/16
+│   ├── Subnet public 10.0.1.0/24
+│   │   └── Internet Gateway
+│   └── EC2 t3.medium (Ubuntu 24.04)
+│         ├── K3s server (single-node)
+│         └── Security Group : 22 (SSH, restreint), 6443 (API kube), 80/443 (Ingress)
+└── S3 + DynamoDB : backend de state Terraform
+```
+
+## Le backend de state
+
+Avant tout, on stocke le `terraform.tfstate` dans S3, avec un verrouillage DynamoDB. Cela évite de le committer et permet le travail à plusieurs.
+
+```hcl
+terraform {
+  backend "s3" {
+    bucket         = "walidblog-tfstate"
+    key            = "k3s/terraform.tfstate"
+    region         = "eu-west-3"
+    dynamodb_table = "walidblog-tflock"
+    encrypt        = true
+  }
+}
+```
+
+## Le réseau
+
+Un seul subnet public suffit pour un cluster d'apprentissage exposé via l'Ingress.
+
+```hcl
+resource "aws_vpc" "main" {
+  cidr_block           = "10.0.0.0/16"
+  enable_dns_support   = true
+  enable_dns_hostnames = true
+
+  tags = { Name = "k3s-vpc" }
+}
+
+resource "aws_subnet" "public" {
+  vpc_id                  = aws_vpc.main.id
+  cidr_block              = "10.0.1.0/24"
+  map_public_ip_on_launch = true
+
+  tags = { Name = "k3s-public" }
+}
+
+resource "aws_internet_gateway" "igw" {
+  vpc_id = aws_vpc.main.id
+  tags   = { Name = "k3s-igw" }
+}
+```
+
+## Le security group
+
+On reste strict : SSH uniquement depuis notre IP, l'API Kubernetes et l'Ingress ouverts.
+
+```hcl
+variable "admin_cidr" {
+  description = "CIDR autorisé pour le SSH (ex. 203.0.113.10/32)"
+  type        = string
+}
+
+resource "aws_security_group" "k3s" {
+  name   = "k3s-sg"
+  vpc_id = aws_vpc.main.id
+
+  ingress {
+    description = "SSH"
+    from_port   = 22
+    to_port     = 22
+    protocol    = "tcp"
+    cidr_blocks = [var.admin_cidr]
+  }
+
+  ingress {
+    description = "API Kubernetes"
+    from_port   = 6443
+    to_port     = 6443
+    protocol    = "tcp"
+    cidr_blocks = [var.admin_cidr]
+  }
+
+  ingress {
+    description = "HTTP / HTTPS (Ingress)"
+    from_port   = 80
+    to_port     = 443
+    protocol    = "tcp"
+    cidr_blocks = ["0.0.0.0/0"]
+  }
+
+  egress {
+    from_port   = 0
+    to_port     = 0
+    protocol    = "-1"
+    cidr_blocks = ["0.0.0.0/0"]
+  }
+}
+```
+
+<Callout type="warning" title="Ne jamais exposer le SSH à 0.0.0.0/0">
+  Le paramètre `admin_cidr` existe précisément pour éviter cela. Sur un cluster exposé, l'API
+  Kubernetes (`6443`) doit elle aussi rester restreinte.
+</Callout>
+
+## L'installation via cloud-init
+
+On installe K3s au premier démarrage. La fonction `templatefile` injecte des variables dans le script.
+
+```hcl
+resource "aws_instance" "k3s" {
+  ami                         = data.aws_ami.ubuntu.id
+  instance_type               = "t3.medium"
+  subnet_id                   = aws_subnet.public.id
+  vpc_security_group_ids      = [aws_security_group.k3s.id]
+  associate_public_ip_address = true
+
+  user_data = templatefile("${path.module}/cloud-init.yaml.tftpl", {
+    k3s_version = "v1.30.4+k3s1"
+  })
+
+  tags = { Name = "k3s-server" }
+}
+```
+
+Le gabarit correspondant :
+
+```yaml
+#cloud-config
+package_update: true
+runcmd:
+  - curl -sfL https://get.k3s.io | INSTALL_K3S_VERSION="${k3s_version}" sh -
+  - mkdir -p /home/ubuntu/.kube
+  - cp /etc/rancher/k3s/k3s.yaml /home/ubuntu/.kube/config
+  - chown -R ubuntu:ubuntu /home/ubuntu/.kube
+```
+
+## Première connexion
+
+Une fois `terraform apply` terminé, on récupère le fichier kubeconfig et on vérifie l'état du cluster.
+
+```bash
+scp ubuntu@$(terraform output -raw public_ip):~/.kube/config ./kubeconfig
+export KUBECONFIG=$PWD/kubeconfig
+kubectl get nodes
+```
+
+## Ce qu'on a appris
+
+- Le duo **Terraform + cloud-init** permet de rendre un cluster reproductible en une commande.
+- Restreindre les règles réseau dès le départ évite les mauvaises surprises.
+- K3s est idéal pour expérimenter, mais un cluster _single-node_ n'apporte aucune haute disponibilité : le prochain article traitera du passage à un plan de contrôle multi-nœuds.

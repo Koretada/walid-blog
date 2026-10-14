@@ -1,0 +1,39 @@
+---
+import Breadcrumbs from '../components/Breadcrumbs.astro';
+import { SITE } from '../consts';
+import BaseLayout from '../layouts/BaseLayout.astro';
+---
+
+<BaseLayout title="Recherche" description={`Rechercher un article sur ${SITE.title}.`} noindex>
+  <Breadcrumbs items={[{ label: 'Accueil', href: '/' }, { label: 'Recherche' }]} />
+
+  <header class="mt-6">
+    <h1 class="text-3xl font-bold tracking-tight text-slate-900 dark:text-slate-100">Recherche</h1>
+    <p class="mt-2 text-slate-600 dark:text-slate-400">
+      Recherchez un article par mot-clé (index statique Pagefind, sans backend).
+    </p>
+  </header>
+
+  <div id="search" class="mt-8"></div>
+
+  <link rel="stylesheet" href="/pagefind/pagefind-ui.css" />
+  <script is:inline src="/pagefind/pagefind-ui.js"></script>
+  <script is:inline>
+    window.addEventListener('DOMContentLoaded', function () {
+      var el = document.getElementById('search');
+      if (window.PagefindUI) {
+        new window.PagefindUI({
+          element: '#search',
+          showImages: false,
+          showSubResults: true,
+        });
+      } else if (el) {
+        el.innerHTML =
+          '<p class="rounded-lg border border-amber-300 bg-amber-50 p-4 text-sm text-amber-900">' +
+          "L'index de recherche est généré lors du build (étape `pagefind`). Il n'est pas disponible en mode développement. " +
+          'Lancez `npm run build` puis `npm run preview` pour tester la recherche.' +
+          '</p>';
+      }
+    });
+  </script>
+</BaseLayout>

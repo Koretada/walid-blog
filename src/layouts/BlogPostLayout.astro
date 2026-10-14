@@ -1,0 +1,167 @@
+---
+import type { MarkdownHeading } from 'astro';
+import type { AstroComponentFactory } from 'astro/runtime/server/index.js';
+import Breadcrumbs from '../components/Breadcrumbs.astro';
+import FormattedDate from '../components/FormattedDate.astro';
+import TableOfContents from '../components/TableOfContents.astro';
+import TagList from '../components/TagList.astro';
+import { readingTimeMinutes, toISO } from '../utils/format';
+import type { BlogPost } from '../utils/posts';
+import { articleJsonLd, breadcrumbJsonLd } from '../utils/seo';
+import BaseLayout from './BaseLayout.astro';
+
+interface Props {
+  post: BlogPost;
+  headings: MarkdownHeading[];
+  Content: AstroComponentFactory;
+  newer?: BlogPost;
+  older?: BlogPost;
+}
+
+const { post, headings, Content, newer, older } = Astro.props;
+const {
+  title,
+  description,
+  pubDate,
+  updatedDate,
+  tags,
+  categories,
+  cover,
+  coverAlt,
+  author,
+  canonicalURL,
+  series,
+} = post.data;
+
+const readingTime = readingTimeMinutes(post.body);
+const ogImage = `/og/blog/${post.id}.png`;
+
+const breadcrumbs = [
+  { label: 'Accueil', href: '/' },
+  { label: 'Blog', href: '/blog' },
+  { label: title },
+];
+
+const jsonLdCrumbs = [
+  { name: 'Accueil', url: '/' },
+  { name: 'Blog', url: '/blog' },
+  { name: title, url: `/blog/${post.id}` },
+];
+---
+
+<BaseLayout
+  title={title}
+  description={description}
+  type="article"
+  image={ogImage}
+  canonicalURL={canonicalURL ?? `/blog/${post.id}`}
+  publishedTime={toISO(pubDate)}
+  modifiedTime={toISO(updatedDate ?? pubDate)}
+  tags={tags}
+  jsonLd={[articleJsonLd(post), breadcrumbJsonLd(jsonLdCrumbs)]}
+>
+  <Breadcrumbs items={breadcrumbs} />
+
+  <div class="mt-6 lg:grid lg:grid-cols-[minmax(0,1fr)_16rem] lg:gap-10">
+    <article class="min-w-0">
+      <header class="mb-8">
+        {categories.length > 0 && (
+          <p class="mb-3 text-sm font-medium text-sky-700 dark:text-sky-400">
+            {categories.map((category, index) => (
+              <>
+                {index > 0 && ', '}
+                <a href={`/categories/${category.toLowerCase().replace(/[^a-z0-9]+/g, '-')}`}>
+                  {category}
+                </a>
+              </>
+            ))}
+          </p>
+        )}
+        <h1 class="text-3xl font-bold tracking-tight text-slate-900 sm:text-4xl dark:text-slate-100">
+          {title}
+        </h1>
+        <p class="mt-4 text-lg text-slate-600 dark:text-slate-400">{description}</p>
+
+        <div class="mt-5 flex flex-wrap items-center gap-x-4 gap-y-2 text-sm text-slate-500 dark:text-slate-400">
+          <span>Par {author}</span>
+          <span aria-hidden="true">·</span>
+          <span>
+            Publié le <FormattedDate date={pubDate} />
+          </span>
+          {updatedDate && (
+            <>
+              <span aria-hidden="true">·</span>
+              <span>
+                Mis à jour le <FormattedDate date={updatedDate} />
+              </span>
+            </>
+          )}
+          <span aria-hidden="true">·</span>
+          <span>{readingTime} min de lecture</span>
+        </div>
+
+        {series && (
+          <p class="mt-4 text-sm text-slate-500 dark:text-slate-400">
+            Série : <span class="font-medium">{series}</span>
+          </p>
+        )}
+
+        <TagList tags={tags} class="mt-5" />
+      </header>
+
+      {cover && (
+        <img
+          src={cover}
+          alt={coverAlt ?? title}
+          width="1200"
+          height="630"
+          loading="eager"
+          decoding="async"
+          class="mb-8 w-full rounded-xl border border-slate-200 object-cover dark:border-slate-800"
+        />
+      )}
+
+      <div class="prose prose-slate max-w-none dark:prose-invert">
+        <Content />
+      </div>
+
+      <footer class="mt-12 border-t border-slate-200 pt-8 dark:border-slate-800">
+        <h2 class="sr-only">Navigation entre les articles</h2>
+        <div class="grid gap-4 sm:grid-cols-2">
+          {older && (
+            <a
+              href={`/blog/${older.id}`}
+              class="rounded-lg border border-slate-200 p-4 transition hover:border-sky-400 dark:border-slate-800 dark:hover:border-sky-500"
+            >
+              <span class="block text-xs text-slate-500 dark:text-slate-400">
+                ← Article précédent
+              </span>
+              <span class="mt-1 block font-medium text-slate-900 dark:text-slate-100">
+                {older.data.title}
+              </span>
+            </a>
+          )}
+          {newer && (
+            <a
+              href={`/blog/${newer.id}`}
+              class="rounded-lg border border-slate-200 p-4 text-right transition hover:border-sky-400 sm:col-start-2 dark:border-slate-800 dark:hover:border-sky-500"
+            >
+              <span class="block text-xs text-slate-500 dark:text-slate-400">
+                Article suivant →
+              </span>
+              <span class="mt-1 block font-medium text-slate-900 dark:text-slate-100">
+                {newer.data.title}
+              </span>
+            </a>
+          )}
+        </div>
+      </footer>
+    </article>
+
+    <aside class="hidden lg:block">
+      <div class="sticky top-24">
+        <TableOfContents headings={headings} />
+      </div>
+    </aside>
+  </div>
+</BaseLayout>

@@ -1,0 +1,17 @@
+# Copiez ce fichier vers `terraform.tfvars` et adaptez les valeurs.
+# `terraform.tfvars` est ignoré par Git (voir .gitignore).
+
+aws_region      = "eu-west-3"
+owner           = "Koretada"
+
+# Domaine & DNS
+domain_name       = "walidblog.example.com"
+hosted_zone_name  = "example.com"
+# subject_alternative_names = ["www.walidblog.example.com"]
+
+# Stockage
+bucket_name = "walidblog-site-prod"
+
+# Déploiement GitHub Actions
+github_repo = "koretada/walidblog"
+# create_github_oidc_provider = false   # si le fournisseur OIDC existe déjà

@@ -1,0 +1,60 @@
+---
+import type { GetStaticPaths } from 'astro';
+import Breadcrumbs from '../../../components/Breadcrumbs.astro';
+import Pagination from '../../../components/Pagination.astro';
+import PostCard from '../../../components/PostCard.astro';
+import { POSTS_PER_PAGE } from '../../../consts';
+import BaseLayout from '../../../layouts/BaseLayout.astro';
+import { getPublishedPosts, pageCount, paginate, type BlogPost } from '../../../utils/posts';
+
+export const getStaticPaths: GetStaticPaths = async () => {
+  const posts = await getPublishedPosts();
+  const totalPages = pageCount(posts.length, POSTS_PER_PAGE);
+
+  // La page 1 est servie par /blog : on ne génère ici que les pages 2..n
+  const paths = [];
+  for (let page = 2; page <= totalPages; page++) {
+    paths.push({
+      params: { page: String(page) },
+      props: { page, totalPages, items: paginate(posts, POSTS_PER_PAGE, page) },
+    });
+  }
+  return paths;
+};
+
+interface Props {
+  page: number;
+  totalPages: number;
+  items: BlogPost[];
+}
+
+const { page, totalPages, items } = Astro.props;
+---
+
+<BaseLayout
+  title={`Blog — page ${page}`}
+  description={`Articles de blog, page ${page} sur ${totalPages}.`}
+  noindex
+>
+  <Breadcrumbs
+    items={[
+      { label: 'Accueil', href: '/' },
+      { label: 'Blog', href: '/blog' },
+      { label: `Page ${page}` },
+    ]}
+  />
+
+  <header class="mt-6">
+    <h1 class="text-3xl font-bold tracking-tight text-slate-900 dark:text-slate-100">
+      Blog — page {page}
+    </h1>
+  </header>
+
+  <div class="mt-8 grid gap-6 sm:grid-cols-2 lg:grid-cols-3">
+    {items.map((post) => (
+      <PostCard post={post} />
+    ))}
+  </div>
+
+  <Pagination page={page} totalPages={totalPages} base="/blog" />
+</BaseLayout>

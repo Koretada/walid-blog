@@ -1,0 +1,34 @@
+---
+import type { MarkdownHeading } from 'astro';
+
+interface Props {
+  headings: MarkdownHeading[];
+}
+
+const { headings } = Astro.props;
+// On n'affiche que les niveaux 2 et 3 (h2 / h3)
+const toc = headings.filter((heading) => heading.depth === 2 || heading.depth === 3);
+---
+
+{toc.length > 0 && (
+  <nav aria-labelledby="toc-title" class="text-sm">
+    <p
+      id="toc-title"
+      class="mb-3 font-semibold tracking-wide text-slate-900 uppercase dark:text-slate-100"
+    >
+      Sommaire
+    </p>
+    <ul class="space-y-1.5 border-l border-slate-200 dark:border-slate-800">
+      {toc.map((heading) => (
+        <li class:list={[heading.depth === 3 && 'pl-3']}>
+          <a
+            href={`#${heading.slug}`}
+            class="-ml-px block border-l border-transparent pl-3 text-slate-600 transition hover:border-sky-500 hover:text-sky-700 dark:text-slate-400 dark:hover:border-sky-400 dark:hover:text-sky-300"
+          >
+            {heading.text}
+          </a>
+        </li>
+      ))}
+    </ul>
+  </nav>
+)}

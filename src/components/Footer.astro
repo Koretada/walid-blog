@@ -1,0 +1,53 @@
+---
+import { SITE } from '../consts';
+
+const year = new Date().getFullYear();
+---
+
+<footer class="border-t border-slate-200 bg-slate-100/60 dark:border-slate-800 dark:bg-slate-900/40">
+  <div class="mx-auto flex max-w-5xl flex-col gap-4 px-4 py-8 text-sm text-slate-600 sm:flex-row sm:items-center sm:justify-between dark:text-slate-400">
+    <p>
+      © {year} {SITE.author} — Contenu publié sous licence CC BY-NC-SA 4.0.
+    </p>
+
+    <nav aria-label="Liens externes">
+      <ul class="flex flex-wrap items-center gap-4">
+        <li>
+          <a class="hover:text-slate-900 dark:hover:text-slate-100" href="/rss.xml">
+            RSS
+          </a>
+        </li>
+        <li>
+          <a
+            class="hover:text-slate-900 dark:hover:text-slate-100"
+            href={SITE.social.github}
+            rel="me noopener"
+            target="_blank"
+          >
+            GitHub
+          </a>
+        </li>
+        <li>
+          <a
+            class="hover:text-slate-900 dark:hover:text-slate-100"
+            href={SITE.social.linkedin}
+            rel="me noopener"
+            target="_blank"
+          >
+            LinkedIn
+          </a>
+        </li>
+        <li>
+          <a
+            class="hover:text-slate-900 dark:hover:text-slate-100"
+            href={SITE.social.x}
+            rel="me noopener"
+            target="_blank"
+          >
+            X
+          </a>
+        </li>
+      </ul>
+    </nav>
+  </div>
+</footer>

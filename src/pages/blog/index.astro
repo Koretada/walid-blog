@@ -1,0 +1,41 @@
+---
+import Breadcrumbs from '../../components/Breadcrumbs.astro';
+import Pagination from '../../components/Pagination.astro';
+import PostCard from '../../components/PostCard.astro';
+import { POSTS_PER_PAGE, SITE } from '../../consts';
+import BaseLayout from '../../layouts/BaseLayout.astro';
+import { getPublishedPosts, pageCount, paginate } from '../../utils/posts';
+import { breadcrumbJsonLd } from '../../utils/seo';
+
+const posts = await getPublishedPosts();
+const totalPages = pageCount(posts.length, POSTS_PER_PAGE);
+const items = paginate(posts, POSTS_PER_PAGE, 1);
+---
+
+<BaseLayout
+  title="Blog"
+  description={`Tous les articles de ${SITE.title} : Cloud, DevOps, Infrastructure-as-Code et observabilité.`}
+  jsonLd={breadcrumbJsonLd([
+    { name: 'Accueil', url: '/' },
+    { name: 'Blog', url: '/blog' },
+  ])}
+>
+  <Breadcrumbs items={[{ label: 'Accueil', href: '/' }, { label: 'Blog' }]} />
+
+  <header class="mt-6">
+    <h1 class="text-3xl font-bold tracking-tight text-slate-900 dark:text-slate-100">Blog</h1>
+    <p class="mt-2 text-slate-600 dark:text-slate-400">
+      {posts.length}
+      {posts.length > 1 ? 'articles publiés' : 'article publié'} — Cloud, DevOps, IaC et
+      observabilité.
+    </p>
+  </header>
+
+  <div class="mt-8 grid gap-6 sm:grid-cols-2 lg:grid-cols-3">
+    {items.map((post) => (
+      <PostCard post={post} />
+    ))}
+  </div>
+
+  <Pagination page={1} totalPages={totalPages} base="/blog" />
+</BaseLayout>

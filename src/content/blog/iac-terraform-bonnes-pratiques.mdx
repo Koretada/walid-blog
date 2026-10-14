@@ -1,0 +1,143 @@
+---
+title: 'Terraform : 8 bonnes pratiques qui changent tout'
+description: 'State distant, modules, variables typées, fmt et validate en CI : les pratiques Terraform qui rendent une base de code maintenable sur la durée.'
+pubDate: 2026-10-07
+author: 'Koretada'
+tags: ['terraform', 'iac', 'bonnes-pratiques', 'cicd']
+categories: ['Infrastructure as Code']
+cover: '/images/terraform.svg'
+coverAlt: 'Illustration « Terraform »'
+series: 'Terraform en pratique'
+keywords: ['terraform', 'infrastructure as code', 'state', 'modules', 'ci']
+---
+
+import Callout from '../../components/Callout.astro';
+
+## TL;DR
+
+Terraform est simple à démarrer et difficile à maintenir si l'on néglige la structure. Les huit pratiques ci-dessous distinguent un dépôt jetable d'une base de code qui survit à l'équipe qui l'a écrite.
+
+## 1. Un state distant, verrouillé
+
+Le `terraform.tfstate` contient l'inventaire de votre infrastructure, parfois des valeurs sensibles. Il ne doit **jamais** être committé.
+
+```hcl
+terraform {
+  backend "s3" {
+    bucket         = "mon-tfstate"
+    key            = "projet/terraform.tfstate"
+    region         = "eu-west-3"
+    dynamodb_table = "mon-tflock"
+    encrypt        = true
+  }
+}
+```
+
+## 2. Une structure de fichiers prévisible
+
+Une organisation constante évite de chercher où vit chaque ressource.
+
+```text
+.
+├── providers.tf     # providers + versions
+├── backend.tf       # configuration du state
+├── variables.tf     # déclaration des variables
+├── main.tf          # ressources (souvent découpées par domaine)
+├── outputs.tf       # valeurs exportées
+└── terraform.tfvars # valeurs concrètes (jamais de secret ici)
+```
+
+## 3. Verrouiller les versions
+
+Un provider qui change de version majeure peut casser un `plan`. On fige.
+
+```hcl
+terraform {
+  required_version = ">= 1.7.0"
+
+  required_providers {
+    aws = {
+      source  = "hashicorp/aws"
+      version = "~> 5.60"
+    }
+  }
+}
+```
+
+## 4. Des variables typées et décrites
+
+Une variable sans type ni description est une dette pour le prochain lecteur.
+
+```hcl
+variable "instance_type" {
+  description = "Type d'instance EC2 pour le serveur applicatif"
+  type        = string
+  default     = "t3.micro"
+
+  validation {
+    condition     = can(regex("^t3\\.", var.instance_type))
+    error_message = "Seuls les types t3.* sont autorisés (maîtrise des coûts)."
+  }
+}
+```
+
+## 5. Les modules pour factoriser
+
+Dès qu'un motif se répète, il devient un module. On privilégie les modules versionnés.
+
+```hcl
+module "network" {
+  source  = "terraform-aws-modules/vpc/aws"
+  version = "5.8.1"
+
+  name = "app-vpc"
+  cidr = "10.0.0.0/16"
+
+  azs             = ["eu-west-3a", "eu-west-3b"]
+  private_subnets = ["10.0.1.0/24", "10.0.2.0/24"]
+  public_subnets  = ["10.0.101.0/24", "10.0.102.0/24"]
+
+  enable_nat_gateway = true
+}
+```
+
+<Callout type="tip" title="Module ≠ ressource">
+  Un module doit encapsuler un **comportement**, pas une ressource unique. Si un module n'a qu'une
+  ressource et deux variables, il ajoute probablement plus de complexité qu'il n'en retire.
+</Callout>
+
+## 6. Formater et valider, systématiquement
+
+`fmt` et `validate` sont gratuits et détectent une grande partie des erreurs bêtes.
+
+```bash
+terraform fmt -recursive -check
+terraform validate
+```
+
+## 7. Ne jamais appliquer depuis un poste local
+
+Le `apply` doit passer par la CI, avec une revue du `plan` et un state distant. On gagne en traçabilité et on supprime l'écart entre « ça marche chez moi » et la réalité.
+
+```bash
+terraform plan -out=tfplan
+terraform show -no-color tfplan > plan.txt   # artefact de revue
+```
+
+## 8. Détecter la dérive
+
+Entre deux `apply`, l'infrastructure peut changer (intervention manuelle, incident). On compare régulièrement l'état réel et l'état décrit.
+
+```bash
+terraform plan -detailed-exitcode
+# code 0 = aucun changement, 2 = changements détectés, 1 = erreur
+```
+
+<Callout type="warning" title="La dérive est un signal">
+  Une dérive récurrente indique souvent un processus manuel non documenté. Le corriger vaut mieux
+  que le réappliquer à la main chaque semaine.
+</Callout>
+
+## Conclusion
+
+Aucune de ces pratiques n'est spectaculaire. Leur valeur vient de leur **régularité** : appliquées ensemble et dès le premier jour, elles transforment Terraform d'un script en une véritable infrastructure reproductible.

@@ -1,0 +1,40 @@
+---
+interface Props {
+  type?: 'note' | 'info' | 'tip' | 'warning' | 'danger';
+  title?: string;
+}
+
+const { type = 'note', title } = Astro.props;
+
+const variants = {
+  note: {
+    label: 'Note',
+    classes: 'border-slate-300 bg-slate-100 dark:border-slate-700 dark:bg-slate-900',
+  },
+  info: {
+    label: 'Info',
+    classes: 'border-sky-300 bg-sky-50 dark:border-sky-800 dark:bg-sky-950/40',
+  },
+  tip: {
+    label: 'Astuce',
+    classes: 'border-emerald-300 bg-emerald-50 dark:border-emerald-800 dark:bg-emerald-950/40',
+  },
+  warning: {
+    label: 'Attention',
+    classes: 'border-amber-300 bg-amber-50 dark:border-amber-800 dark:bg-amber-950/40',
+  },
+  danger: {
+    label: 'Danger',
+    classes: 'border-red-300 bg-red-50 dark:border-red-800 dark:bg-red-950/40',
+  },
+} as const;
+
+const variant = variants[type];
+---
+
+<aside class:list={['my-6 rounded-lg border-l-4 p-4', variant.classes]} role="note">
+  <p class="mb-1 font-semibold text-slate-900 dark:text-slate-100">{title ?? variant.label}</p>
+  <div class="text-sm text-slate-700 [&>p]:m-0 dark:text-slate-300">
+    <slot />
+  </div>
+</aside>

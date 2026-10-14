@@ -1,0 +1,36 @@
+---
+import Breadcrumbs from '../../components/Breadcrumbs.astro';
+import { SITE } from '../../consts';
+import BaseLayout from '../../layouts/BaseLayout.astro';
+import { getPublishedPosts } from '../../utils/posts';
+import { summarizeTerms } from '../../utils/taxonomy';
+
+const posts = await getPublishedPosts();
+const categories = summarizeTerms(posts, 'categories');
+---
+
+<BaseLayout title="Catégories" description={`Toutes les catégories des articles de ${SITE.title}.`}>
+  <Breadcrumbs items={[{ label: 'Accueil', href: '/' }, { label: 'Catégories' }]} />
+
+  <header class="mt-6">
+    <h1 class="text-3xl font-bold tracking-tight text-slate-900 dark:text-slate-100">Catégories</h1>
+    <p class="mt-2 text-slate-600 dark:text-slate-400">{categories.length} catégories.</p>
+  </header>
+
+  <ul class="mt-8 grid gap-4 sm:grid-cols-2">
+    {categories.map((category) => (
+      <li>
+        <a
+          href={`/categories/${category.slug}`}
+          class="flex items-center justify-between rounded-lg border border-slate-200 bg-white p-5 transition hover:border-sky-400 dark:border-slate-800 dark:bg-slate-900 dark:hover:border-sky-500"
+        >
+          <span class="font-semibold text-slate-900 dark:text-slate-100">{category.term}</span>
+          <span class="text-sm text-slate-500 dark:text-slate-400">
+            {category.count}
+            {category.count > 1 ? ' articles' : ' article'}
+          </span>
+        </a>
+      </li>
+    ))}
+  </ul>
+</BaseLayout>

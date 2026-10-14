@@ -1,0 +1,16 @@
+# Build & dépendances
+dist/
+node_modules/
+.astro/
+package-lock.json
+
+# Assets statiques & infra (non formatés par Prettier)
+public/
+terraform/
+
+# Documentation de projet
+PRD.md
+README.md
+
+# Workflows (YAML déjà lisible)
+# .github/

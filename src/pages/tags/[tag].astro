@@ -1,0 +1,48 @@
+---
+import type { GetStaticPaths } from 'astro';
+import Breadcrumbs from '../../components/Breadcrumbs.astro';
+import PostCard from '../../components/PostCard.astro';
+import BaseLayout from '../../layouts/BaseLayout.astro';
+import { getPublishedPosts, type BlogPost } from '../../utils/posts';
+import { postsByTerm, summarizeTerms } from '../../utils/taxonomy';
+
+export const getStaticPaths: GetStaticPaths = async () => {
+  const posts = await getPublishedPosts();
+  const tags = summarizeTerms(posts, 'tags');
+  return tags.map((tag) => ({
+    params: { tag: tag.slug },
+    props: { term: tag.term, posts: postsByTerm(posts, 'tags', tag.slug) },
+  }));
+};
+
+interface Props {
+  term: string;
+  posts: BlogPost[];
+}
+
+const { term, posts } = Astro.props;
+---
+
+<BaseLayout title={`#${term}`} description={`Articles étiquetés « ${term} ».`} noindex>
+  <Breadcrumbs
+    items={[
+      { label: 'Accueil', href: '/' },
+      { label: 'Tags', href: '/tags' },
+      { label: `#${term}` },
+    ]}
+  />
+
+  <header class="mt-6">
+    <h1 class="text-3xl font-bold tracking-tight text-slate-900 dark:text-slate-100">#{term}</h1>
+    <p class="mt-2 text-slate-600 dark:text-slate-400">
+      {posts.length}
+      {posts.length > 1 ? 'articles' : 'article'}
+    </p>
+  </header>
+
+  <div class="mt-8 grid gap-6 sm:grid-cols-2 lg:grid-cols-3">
+    {posts.map((post) => (
+      <PostCard post={post} />
+    ))}
+  </div>
+</BaseLayout>
