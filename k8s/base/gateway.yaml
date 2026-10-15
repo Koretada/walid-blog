@@ -6,8 +6,12 @@ metadata:
     app.kubernetes.io/name: walid-blog
     app.kubernetes.io/component: web
   annotations:
-    # Certificat géré par cert-manager (nécessite son support Gateway API).
-    # Alternative : créer un Certificate dont le secret cible `walid-blog-tls`.
+    # Certificat géré par cert-manager : le secret `walid-blog-tls` est produit
+    # par la ressource Certificate de base/certificate.yaml.
+    #
+    # Variante « shim » (cert-manager >= 1.15, support Gateway API activé) :
+    # décommentez la ligne ci-dessous et supprimez base/certificate.yaml —
+    # cert-manager créera le Certificate et le secret automatiquement.
     # cert-manager.io/cluster-issuer: letsencrypt-prod
 spec:
   # GatewayClass fournie par Traefik.

@@ -12,7 +12,7 @@ ArgoCD réconcilie en continu l'état du cluster.
 
 | Fichier | Rôle |
 | --- | --- |
-| `base/` | Manifests communs : `Deployment`, `Service`, `Gateway`, `HTTPRoute` |
+| `base/` | Manifests communs : `Deployment`, `Service`, `Gateway`, `HTTPRoute`, `Issuer`, `Certificate` |
 | `overlays/prod/kustomization.yaml` | Overlay de production — **point d'entrée surveillé par ArgoCD** |
 | `argocd/application.yaml` | Manifeste de l'`Application` ArgoCD (application unique, une fois) |
 
@@ -165,7 +165,7 @@ Valeurs par défaut (K3s / chart Helm) :
 | `http` | **8000** | `web` | 80 → 8000 |
 | `https` | **8443** | `websecure` | 443 → 8443 |
 
-### TLS
+### TLS (Let's Encrypt, challenge HTTP-01)
 
 Le certificat est référencé **sur le listener** de la `Gateway`, en mode `Terminate` :
 
@@ -180,15 +180,65 @@ listeners:
         - name: walid-blog-tls
 ```
 
-Trois façons de produire le secret `walid-blog-tls` (qui doit être **dans le namespace de
-la `Gateway`**, donc `walid-blog`) :
+Le secret `walid-blog-tls` est **produit par cert-manager** à partir de
+`base/certificate.yaml` (`Certificate` → `Issuer` `letsencrypt-prod` → `base/issuer.yaml`).
 
-1. **cert-manager avec support Gateway API** : décommentez l'annotation
-   `cert-manager.io/cluster-issuer` sur la `Gateway` dans `base/gateway.yaml`.
-2. **cert-manager classique** : créez une ressource `Certificate` avec
-   `secretName: walid-blog-tls`.
-3. **Manuel** :
-   `kubectl create secret tls walid-blog-tls -n walid-blog --cert=crt.pem --key=key.pem`
+#### Pourquoi le solveur `http01.ingress` et pas `gatewayHTTPRoute`
+
+La doc cert-manager impose au solveur Gateway API une `Gateway` avec **un listener sur le
+port 80** :
+
+> *"you can also choose to re-use your existing Gateway, as long as it has a listener on
+> port 80."*
+
+Or Traefik exige que les ports de listener correspondent à ses **EntryPoints** (ici `8000`
+et `8443`). Les deux contraintes sont incompatibles : le solveur retenu est donc
+`http01.ingress` avec `ingressClassName: traefik`, qui s'appuie sur le **provider Ingress de
+Traefik** (actif par défaut sur K3s) et n'impose aucune contrainte de port.
+
+Cert-manager crée alors **temporairement** un `Service` et un `Ingress` pour
+`/.well-known/acme-challenge/<token>`, puis **les supprime** une fois le certificat émis.
+
+#### Mise en route
+
+```bash
+# 1. Remplacer l'adresse e-mail dans base/issuer.yaml (2 occurrences)
+# 2. Vérifier l'émetteur
+kubectl -n walid-blog get issuer
+kubectl -n walid-blog describe issuer letsencrypt-prod
+
+# 3. Suivre la demande
+kubectl -n walid-blog get certificate,certificaterequest,order,challenge
+kubectl -n walid-blog describe certificate walid-blog-tls
+
+# 4. Prêt quand READY=True et que le secret existe
+kubectl -n walid-blog get secret walid-blog-tls
+```
+
+#### Mise au point : utiliser l'émetteur *staging*
+
+Let's Encrypt **bloque** après quelques échecs répétés en production. Pour itérer sans
+risque, pointez le `Certificate` sur `letsencrypt-staging` (le navigateur affichera un
+avertissement de certificat : c'est normal), puis repassez sur `letsencrypt-prod`.
+
+Pour repartir d'un état propre après un échec :
+
+```bash
+kubectl -n walid-blog delete secret walid-blog-tls
+kubectl -n walid-blog delete certificaterequest --all
+```
+
+#### Alternatives
+
+- **Certificat manuel** :
+  `kubectl create secret tls walid-blog-tls -n walid-blog --cert=crt.pem --key=key.pem`
+- **Émetteur partagé** : remplacez `Issuer` par `ClusterIssuer` dans `base/issuer.yaml`
+  (et retirez `metadata.namespace`).
+
+> ⚠️ Ne placez **pas** un `ClusterIssuer` dans `k8s/base/` : l'overlay applique
+> `namespace: walid-blog`, et Kustomize ignorant qu'un CRD est *cluster-scoped* y ajouterait
+> un `metadata.namespace` invalide. Mettez-le dans un kustomization sans `namespace`, ou
+> dans un dépôt de plateforme.
 
 ### Redirection HTTP → HTTPS
 
@@ -239,7 +289,10 @@ conserve `allowedRoutes.namespaces.from: Same` — soit le réglage le plus rest
 | `HTTPRoute` en `Accepted=False` | `parentRefs` ne cible pas la bonne `Gateway`/listener, ou namespace non autorisé |
 | `404` renvoyé par Traefik | `hostnames` de la `HTTPRoute` ≠ domaine demandé |
 | Le site répond en HTTP sans redirection | Route `walid-blog-redirect` absente ou non attachée au listener `http` |
-| Certificat TLS invalide / auto-signé | Secret `walid-blog-tls` absent du namespace `walid-blog` (voir section TLS) |
+| Certificat TLS invalide / auto-signé | Secret `walid-blog-tls` absent ou non prêt (voir section TLS) |
+| `Certificate` jamais `READY` | `kubectl -n walid-blog describe certificate walid-blog-tls`, puis `get challenges` |
+| Challenge HTTP-01 renvoyant `404` | DNS de `blog.walidb.fr` non propagé, ou route de redirection prioritaire sur le challenge |
+| ACME « too many failed authorizations » | Limite Let's Encrypt atteinte : basculer sur `letsencrypt-staging` le temps de corriger |
 | ArgoCD `OutOfSync` en boucle | `selfHeal` corrige une modification manuelle : revenez à Git |
 | Le site ne se met pas à jour | Le commit de bump n'a pas été poussé (`publish.yml` en échec) |
 

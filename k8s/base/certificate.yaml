@@ -1,0 +1,27 @@
+# Certificat TLS du blog, émis par Let's Encrypt via challenge HTTP-01.
+#
+# cert-manager crée (et renouvelle) le secret `walid-blog-tls` dans ce namespace.
+# Ce nom doit correspondre au `certificateRefs` du listener « https » de la
+# Gateway (voir base/gateway.yaml).
+apiVersion: cert-manager.io/v1
+kind: Certificate
+metadata:
+  name: walid-blog-tls
+  labels:
+    app.kubernetes.io/name: walid-blog
+    app.kubernetes.io/component: web
+spec:
+  secretName: walid-blog-tls
+  issuerRef:
+    # Issuer namespacé (base/issuer.yaml). Remplacer par `kind: ClusterIssuer`
+    # si vous partagez l'émetteur avec d'autres applications.
+    kind: Issuer
+    name: letsencrypt-prod
+  # ⚠️ Doit correspondre aux `hostnames` des HTTPRoute (base/httproute.yaml)
+  dnsNames:
+    - blog.walidb.fr
+  privateKey:
+    algorithm: ECDSA
+    size: 256
+    # Renouvelle la clé à chaque rotation du certificat
+    rotationPolicy: Always

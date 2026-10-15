@@ -1,0 +1,48 @@
+# Issuers ACME Let's Encrypt, validés par challenge HTTP-01.
+#
+# Le solveur est de type `http01.ingress` (et non `gatewayHTTPRoute`) : la doc
+# cert-manager impose au solveur Gateway API une Gateway avec un listener sur le
+# port 80, alors que Traefik exige que les ports de listener correspondent aux
+# EntryPoints (ici 8000 / 8443). Le provider Ingress de Traefik, lui, est actif
+# par défaut sur K3s et route le challenge sans contrainte de port.
+
+---
+# --- Environnement de TEST ------------------------------------------------
+# À utiliser pendant la mise au point : les limites de débit sont beaucoup plus
+# larges que celles de la production. ⚠️ Les certificats émis en staging ne sont
+# PAS reconnus par les navigateurs (autorité de test).
+apiVersion: cert-manager.io/v1
+kind: Issuer
+metadata:
+  name: letsencrypt-staging
+spec:
+  acme:
+    server: https://acme-staging-v02.api.letsencrypt.org/directory
+    # ⚠️ À REMPLACER par votre adresse (Let's Encrypt y envoie les alertes
+    # d'expiration).
+    email: contact@walidb.fr
+    privateKeySecretRef:
+      name: letsencrypt-staging-account-key
+    solvers:
+      - http01:
+          ingress:
+            # IngressClass fournie par le Traefik de K3s
+            ingressClassName: traefik
+
+---
+# --- Environnement de PRODUCTION -----------------------------------------
+apiVersion: cert-manager.io/v1
+kind: Issuer
+metadata:
+  name: letsencrypt-prod
+spec:
+  acme:
+    server: https://acme-v02.api.letsencrypt.org/directory
+    # ⚠️ À REMPLACER par votre adresse
+    email: contact@walidb.fr
+    privateKeySecretRef:
+      name: letsencrypt-prod-account-key
+    solvers:
+      - http01:
+          ingress:
+            ingressClassName: traefik
