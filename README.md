@@ -123,6 +123,28 @@ décroissante.
 La collection alimente aussi le JSON-LD `Person.hasCredential` de la page, ce qui permet aux
 moteurs de recherche de rattacher les badges au profil.
 
+#### Préparer un badge
+
+Le champ `logo:` attend une image **carrée** servie depuis `public/`. Les visuels fournis par
+les éditeurs ont des ratios et des marges très variables : le script de normalisation
+détoure, centre dans un carré transparent (sans jamais déformer) et compresse.
+
+```bash
+# Depuis un fichier local
+node scripts/optimize-certification-badge.mjs ~/telechargements/badge.png --name aws-saa
+
+# Depuis une URL
+node scripts/optimize-certification-badge.mjs https://exemple.tld/badge.png --name cka
+```
+
+Sortie : **224×224 px** (4× la taille d'affichage de 56 px, donc net sur Retina et écrans 3×).
+Le script avertit si la source est plus petite que la cible — un agrandissement donne un rendu
+flou, mieux vaut toujours partir du badge d'origine à la résolution la plus élevée fournie par
+l'éditeur. Il affiche aussi la ligne de frontmatter à coller.
+
+> **Résolution** : la carte rend le badge en `56×56` CSS. Une source de `60×60` oblige à
+> agrandir de ~4× → rendu mou. Visez au minimum **224 px** de côté à la source.
+
 > **Badges et marques** : `public/images/certifications/` contient des badges SVG **originaux**
 > dessinés pour ce blog (aucun logo officiel n'est reproduit, les marques appartiennent à leurs
 > détenteurs). Si tu détiens une certification, tu peux généralement récupérer le badge officiel
