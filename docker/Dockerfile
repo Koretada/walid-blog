@@ -55,6 +55,11 @@ ENV NGINX_ENTRYPOINT_QUIET_LOGS=1
 # Configuration Nginx (en-têtes de sécurité, cache, compression, 404)
 COPY docker/nginx.conf /etc/nginx/conf.d/default.conf
 
+# Redirections 301 des articles en brouillon, générées par le build Astro
+# (src/pages/drafts.conf.ts). Ce fichier est inclus par nginx.conf et n'est pas
+# exposé : il est copié hors de la racine web et bloqué par une location dédiée.
+COPY --from=build /app/dist/drafts.conf /etc/nginx/drafts.conf
+
 # On repart d'une racine web vide, puis on y dépose le site généré.
 # USER root uniquement le temps de ce nettoyage, quel que soit l'USER de base.
 USER root

@@ -85,6 +85,45 @@ appartiennent déjà. C'est ce qui rend possible un `securityContext` en profil
 > Les en-têtes sont déclarés au niveau `server` et utilisent `expires` dans les `location` :
 > `add_header` dans un `location` écraserait l'héritage des en-têtes de sécurité.
 
+### Redirections des articles en brouillon
+
+Un article marqué `draft: true` n'est **pas généré par le build** : son URL historique
+renverrait donc une **404**, ce qui la ferait sortir de l'index des moteurs de recherche.
+
+Pour préserver ces URL, le build Astro produit un fragment de configuration Nginx
+(`src/pages/drafts.conf.ts` → `dist/drafts.conf`) qui contient une **redirection 301** par
+article en brouillon :
+
+```nginx
+location = /blog/mon-article-en-brouillon {
+    return 301 /blog;
+}
+```
+
+Le `Dockerfile` copie ce fichier dans `/etc/nginx/drafts.conf`, et `nginx.conf` l'inclut
+dans le bloc `server` (via `include`), avec une `location` qui rend le fichier
+**non téléchargeable** (il révèle la liste des articles non publiés).
+
+Trois propriétés à connaître :
+
+- **la liste est dérivée de la collection** : repasser un article en `draft: false`
+  **supprime automatiquement** sa redirection, puisque la vraie page est alors générée.
+  Rien à maintenir à la main, rien à penser à nettoyer ;
+- **les correspondances sont exactes** : une URL réellement inexistante sous `/blog/`
+  renvoie toujours une 404 (pas de « soft 404 » global sur tout le dossier) ;
+- le `Location` est **relatif** grâce à `absolute_redirect off` (voir plus haut) : aucun
+  port interne (`8080`) ne fuit dans l'en-tête.
+
+Vérification locale :
+
+```bash
+curl -sSI http://localhost:8080/blog/deployer-k3s-aws-terraform | grep -i location
+# Location: /blog
+
+curl -sS -o /dev/null -w '%{http_code}\n' http://localhost:8080/blog/inexistant
+# 404
+```
+
 ### Reverse proxy / HTTPS
 
 Cette image sert du **HTTP** sur `8080`. Placez-la derrière un reverse proxy (Traefik,

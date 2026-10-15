@@ -73,7 +73,10 @@ lang: 'fr'
   - ❌ **absent du site publié** (`npm run build`) : la page n'est pas générée, donc
     l'article n'apparaît ni dans les listes, ni dans le flux RSS, ni dans le sitemap,
     ni dans l'index de recherche Pagefind.
-- Pour publier : passez `draft: false` (ou supprimez la ligne) et mergez.
+  - ♻️ son ancienne URL **redirige en 301 vers `/blog`** au lieu de renvoyer une 404, pour
+    ne pas casser une URL déjà indexée (voir [docker/README.md](docker/README.md)).
+- Pour publier : passez `draft: false` (ou supprimez la ligne) et mergez. La redirection
+  disparaît alors d'elle-même.
 - Les images **dans le corps** d'un article sont optimisées par Astro lorsqu'elles sont
   référencées en chemin relatif.
 - Les composants MDX (ex. `Callout`) s'importent en tête de fichier :

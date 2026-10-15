@@ -17,8 +17,10 @@ export default defineConfig({
   integrations: [
     mdx(),
     sitemap({
-      // On exclut la page 404 du sitemap
-      filter: (page) => !page.includes('/404'),
+      // On exclut la page 404 du sitemap, ainsi que le fichier de redirections
+      // Nginx — c'est un artefact de build, pas une page (voir
+      // src/pages/drafts.conf.ts).
+      filter: (page) => !page.includes('/404') && !page.endsWith('/drafts.conf'),
     }),
   ],
   markdown: {
