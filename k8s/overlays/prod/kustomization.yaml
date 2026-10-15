@@ -13,4 +13,4 @@ resources:
 
 images:
   - name: ghcr.io/koretada/walid-blog
-    newTag: sha-22e11f6
+    newTag: sha-d6e8576
