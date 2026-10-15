@@ -8,6 +8,7 @@ categories: ['DevOps']
 cover: '/images/argocd-flagger.svg'
 coverAlt: 'Illustration « GitOps »'
 keywords: ['argocd', 'flagger', 'gitops', 'canary', 'progressive delivery', 'kubernetes']
+draft: true
 ---
 
 ## TL;DR

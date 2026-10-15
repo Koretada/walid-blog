@@ -8,6 +8,7 @@ categories: ['Observabilité']
 cover: '/images/prometheus-grafana.svg'
 coverAlt: 'Illustration « Observabilité »'
 keywords: ['prometheus', 'grafana', 'alertmanager', 'k3s', 'monitoring']
+draft: true
 ---
 
 ## TL;DR
