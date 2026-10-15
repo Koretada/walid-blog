@@ -6,7 +6,9 @@ import sitemap from '@astrojs/sitemap';
 import tailwindcss from '@tailwindcss/vite';
 
 // URL publique du site. Surchargeable via la variable d'environnement SITE_URL.
-const site = process.env.SITE_URL ?? 'https://walidblog.example.com';
+// ⚠️ Cette valeur alimente TOUTES les URL absolues du site : canonical, Open Graph,
+// flux RSS, sitemap, robots.txt et données structurées JSON-LD.
+const site = process.env.SITE_URL ?? 'https://blog.walidb.fr';
 
 // https://astro.build/config
 export default defineConfig({
