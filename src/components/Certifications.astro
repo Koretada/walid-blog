@@ -1,0 +1,23 @@
+---
+import CertificationCard from './CertificationCard.astro';
+import { getVisibleCertifications } from '../utils/certifications';
+
+/**
+ * Grille des certifications obtenues, alimentée par la collection
+ * `certifications`. `not-prose` empêche le style typographique de la page
+ * (Tailwind Typography) de déteindre sur les cartes.
+ */
+const certifications = await getVisibleCertifications();
+---
+
+{certifications.length > 0 ? (
+  <ul class="not-prose mt-6 grid list-none gap-4 p-0 sm:grid-cols-2">
+    {certifications.map((certification) => (
+      <CertificationCard certification={certification} />
+    ))}
+  </ul>
+) : (
+  <p class="not-prose mt-6 text-sm text-slate-500 dark:text-slate-400">
+    Aucune certification à afficher pour le moment.
+  </p>
+)}

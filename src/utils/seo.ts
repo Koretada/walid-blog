@@ -3,15 +3,34 @@ import { toISO } from './format';
 import type { BlogPost } from './posts';
 import { absoluteUrl } from './url';
 
-/** Données structurées `Person` (auteur). */
-export function personJsonLd(): Record<string, unknown> {
-  return {
+/**
+ * Données structurées `Person` (auteur).
+ *
+ * Les certifications obtenues sont exposées via `hasCredential`, ce qui permet
+ * aux moteurs de recherche de rattacher les badges au profil.
+ */
+export function personJsonLd(
+  credentials: ReadonlyArray<{ name: string; issuer: string; url?: string }> = []
+): Record<string, unknown> {
+  const jsonLd: Record<string, unknown> = {
     '@context': 'https://schema.org',
     '@type': 'Person',
     name: SITE.author,
     url: absoluteUrl('/about'),
     sameAs: [SITE.social.github, SITE.social.linkedin, SITE.social.x],
   };
+
+  if (credentials.length > 0) {
+    jsonLd.hasCredential = credentials.map((credential) => ({
+      '@type': 'EducationalOccupationalCredential',
+      name: credential.name,
+      credentialCategory: 'certification',
+      recognizedBy: { '@type': 'Organization', name: credential.issuer },
+      ...(credential.url ? { url: credential.url } : {}),
+    }));
+  }
+
+  return jsonLd;
 }
 
 /** Données structurées `WebSite` (+ SearchAction). */

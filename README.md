@@ -86,21 +86,76 @@ import Callout from '../../components/Callout.astro';
 
 ---
 
+## CV & certifications
+
+La page « À propos » affiche le CV. Chaque section est alimentée par une collection
+validée par Zod, ce qui permet d'ajouter une ligne sans toucher au code ni à la mise en page.
+
+### Certifications
+
+Un fichier par certification dans `src/content/certifications/` :
+
+```yaml
+---
+name: 'AWS Certified Solutions Architect – Associate'   # intitulé officiel
+issuer: 'Amazon Web Services'                          # organisme émetteur
+code: 'SAA-C03'                                        # code de l'examen (optionnel)
+issued: 2024-06-15                                     # date d'obtention (optionnel)
+expires: 2027-06-15                                    # expiration (optionnel)
+verifyUrl: 'https://www.credly.com/badges/…'           # vérification publique (optionnel)
+credentialId: 'ABC-123'                                # ID affiché à défaut d'URL (optionnel)
+logo: '/images/certifications/mon-badge.svg'           # badge carré depuis public/
+logoAlt: 'Badge …'                                     # texte alternatif
+accent: 'amber'                                        # sky | amber | violet | emerald | red | neutral
+skills: ['Architectures résilientes', 'Optimisation des coûts']
+order: 1                                               # ordre d'affichage croissant
+draft: false                                           # true = visible en dev uniquement
+---
+```
+
+Les champs optionnels sont réellement optionnels : une certification sans `issued` s'affiche
+sans date (un rappel n'apparaît qu'en développement). Le tri se fait par `order`, puis par date
+décroissante.
+
+La collection alimente aussi le JSON-LD `Person.hasCredential` de la page, ce qui permet aux
+moteurs de recherche de rattacher les badges au profil.
+
+> **Badges et marques** : `public/images/certifications/` contient des badges SVG **originaux**
+> dessinés pour ce blog (aucun logo officiel n'est reproduit, les marques appartiennent à leurs
+> détenteurs). Si tu détiens une certification, tu peux généralement récupérer le badge officiel
+> fourni par l'émetteur à ses certifiés (Credly pour AWS et CompTIA, credential.net pour la CNCF)
+> et le déposer dans ce dossier : il suffit ensuite de pointer `logo:` dessus, sans changer le code.
+
+Pour insérer la grille dans une page, on utilise le composant :
+
+```mdx
+import Certifications from '../../components/Certifications.astro';
+
+## Certifications
+
+<Certifications />
+```
+
+---
+
 ## Structure du projet
 
 ```text
 walidblog/
 ├── .github/workflows/     # CI (lint, types, build, Lighthouse, liens)
 ├── public/                # assets statiques (favicon, images, robots)
+│   └── images/
+│       └── certifications/ # badges des certifications (SVG/PNG carrés)
 ├── src/
 │   ├── components/        # Header, Footer, PostCard, BaseHead, Callout, TOC...
 │   ├── content/
 │   │   ├── blog/          # ARTICLES (.md / .mdx)
-│   │   └── pages/         # pages statiques (about.md)
+│   │   ├── certifications/ # CV : certifications (un fichier par badge)
+│   │   └── pages/         # pages statiques (about.mdx)
 │   ├── layouts/           # BaseLayout, BlogPostLayout
 │   ├── pages/             # routes (index, blog, tags, categories, rss, og...)
 │   ├── styles/global.css  # Tailwind + styles Shiki
-│   ├── utils/             # helpers (dates, posts, taxonomie, SEO, OG)
+│   ├── utils/             # helpers (dates, posts, certifications, taxonomie, SEO, OG)
 │   ├── consts.ts          # configuration éditoriale & SEO
 │   └── content.config.ts  # schémas Zod des collections
 ├── docker/                # application conteneurisée (Dockerfile, Nginx, Compose)
