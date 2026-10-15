@@ -11,7 +11,7 @@ spec:
     - name: walid-blog
       sectionName: https
   hostnames:
-    - walidblog.example.com
+    - blog.walidb.fr
   rules:
     - matches:
         - path:
@@ -38,7 +38,7 @@ spec:
     - name: walid-blog
       sectionName: http
   hostnames:
-    - walidblog.example.com
+    - blog.walidb.fr
   rules:
     - filters:
         - type: RequestRedirect
