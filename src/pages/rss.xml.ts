@@ -1,14 +1,14 @@
 import rss from '@astrojs/rss';
 import type { APIRoute } from 'astro';
 import { SITE } from '../consts';
-import { getPublishedPosts } from '../utils/posts';
+import { getVisiblePosts } from '../utils/posts';
 
 export const GET: APIRoute = async (context) => {
   if (!context.site) {
     throw new Error('`site` doit être défini dans astro.config.mjs pour générer le flux RSS.');
   }
 
-  const posts = await getPublishedPosts();
+  const posts = await getVisiblePosts();
 
   return rss({
     title: SITE.title,

@@ -184,7 +184,7 @@ readingTime: auto                                         # calculé automatique
 
 - Un article = **un fichier**, nommé `kebab-case` (ex. `deployer-k3s-aws-terraform.mdx`).
 - **Slug** = nom du fichier (URL propre : `/blog/deployer-k3s-aws-terraform`).
-- Les brouillons (`draft: true`) sont **exclus du build de production** mais visibles en preview/dev.
+- Les brouillons (`draft: true`) sont **exclus du build de production** : leur page n'est pas générée, donc ils sont absents des listes, du RSS, du sitemap et de l'index Pagefind. En **développement** (`npm run dev`), ils restent visibles avec un badge « Brouillon » et un rappel listant les brouillons en attente, afin de pouvoir les relire avant publication.
 - Les médias vivent dans `src/assets/` (optimisés par Astro) ou `public/` (statiques).
 - Chaque article doit définir `description`, `tags`, et une `cover` (sinon image OG par défaut).
 

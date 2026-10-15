@@ -3,12 +3,37 @@ import { getCollection, type CollectionEntry } from 'astro:content';
 export type BlogPost = CollectionEntry<'blog'>;
 
 /**
- * Récupère les articles publiés (brouillons exclus), triés du plus récent
- * au plus ancien.
+ * En développement (`astro dev`), les brouillons sont visibles afin de pouvoir
+ * les relire. En build de production, ils disparaissent complètement du site.
  */
-export async function getPublishedPosts(): Promise<BlogPost[]> {
-  const posts = await getCollection('blog', ({ data }) => !data.draft);
-  return posts.sort((a, b) => b.data.pubDate.getTime() - a.data.pubDate.getTime());
+const INCLUDE_DRAFTS = import.meta.env.DEV;
+
+/** Tri du plus récent au plus ancien. */
+function byDateDesc(a: BlogPost, b: BlogPost): number {
+  return b.data.pubDate.getTime() - a.data.pubDate.getTime();
+}
+
+/**
+ * Articles à afficher sur le site.
+ *
+ * - `npm run dev` → brouillons **inclus** (signalés par un badge « Brouillon »),
+ *   pour relire un article avant de le publier.
+ * - `npm run build` → brouillons **exclus**. Leurs pages ne sont pas générées :
+ *   ils sont donc absents des listes, du flux RSS, du sitemap, des images Open
+ *   Graph et de l'index de recherche Pagefind.
+ */
+export async function getVisiblePosts(): Promise<BlogPost[]> {
+  const posts = await getCollection('blog', ({ data }) => INCLUDE_DRAFTS || !data.draft);
+  return posts.sort(byDateDesc);
+}
+
+/**
+ * Uniquement les brouillons, du plus récent au plus ancien.
+ * Sert à signaler les articles en attente de publication en développement.
+ */
+export async function getDraftPosts(): Promise<BlogPost[]> {
+  const posts = await getCollection('blog', ({ data }) => data.draft);
+  return posts.sort(byDateDesc);
 }
 
 /** Découpe une liste d'articles en pages de taille `size`. */

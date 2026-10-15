@@ -2,10 +2,10 @@
 import Breadcrumbs from '../../components/Breadcrumbs.astro';
 import { SITE } from '../../consts';
 import BaseLayout from '../../layouts/BaseLayout.astro';
-import { getPublishedPosts } from '../../utils/posts';
+import { getVisiblePosts } from '../../utils/posts';
 import { summarizeTerms } from '../../utils/taxonomy';
 
-const posts = await getPublishedPosts();
+const posts = await getVisiblePosts();
 const tags = summarizeTerms(posts, 'tags');
 ---
 

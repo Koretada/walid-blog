@@ -4,10 +4,10 @@ import PostCard from '../components/PostCard.astro';
 import TagList from '../components/TagList.astro';
 import { SITE } from '../consts';
 import BaseLayout from '../layouts/BaseLayout.astro';
-import { getPublishedPosts } from '../utils/posts';
+import { getVisiblePosts } from '../utils/posts';
 import { personJsonLd, websiteJsonLd } from '../utils/seo';
 
-const posts = await getPublishedPosts();
+const posts = await getVisiblePosts();
 const [featured, ...others] = posts;
 const recent = others.slice(0, 5);
 ---

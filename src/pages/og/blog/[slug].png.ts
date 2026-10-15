@@ -1,10 +1,10 @@
 import type { APIRoute, GetStaticPaths } from 'astro';
 import sharp from 'sharp';
 import { renderOgSvg } from '../../../utils/og';
-import { getPublishedPosts, type BlogPost } from '../../../utils/posts';
+import { getVisiblePosts, type BlogPost } from '../../../utils/posts';
 
 export const getStaticPaths: GetStaticPaths = async () => {
-  const posts = await getPublishedPosts();
+  const posts = await getVisiblePosts();
   return posts.map((post) => ({
     params: { slug: post.id },
     props: { post },

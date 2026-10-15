@@ -1,0 +1,25 @@
+---
+// Badge « Brouillon ».
+//
+// Ne s'affiche qu'en développement : en production, les articles en brouillon
+// ne sont jamais générés, donc ce composant n'y rend rien.
+interface Props {
+  draft: boolean | undefined;
+  class?: string;
+}
+
+const { draft, class: className = '' } = Astro.props;
+const visible = import.meta.env.DEV && draft === true;
+---
+
+{visible && (
+  <span
+    class:list={[
+      'inline-flex items-center rounded-full bg-amber-100 px-2 py-0.5 text-xs font-semibold text-amber-800 dark:bg-amber-900/50 dark:text-amber-200',
+      className,
+    ]}
+    title="Brouillon : visible uniquement en développement"
+  >
+    Brouillon
+  </span>
+)}

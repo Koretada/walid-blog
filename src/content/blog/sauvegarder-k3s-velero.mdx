@@ -1,0 +1,54 @@
+---
+title: 'Sauvegarder un cluster K3s avec Velero (en cours de rédaction)'
+description: "Brouillon d'article sur la sauvegarde et la restauration d'un cluster K3s : installation de Velero, backend S3, planification et test de restauration."
+pubDate: 2026-10-15
+author: 'Koretada'
+tags: ['kubernetes', 'backup', 'velero', 'k3s']
+categories: ['DevOps']
+cover: '/images/k3s-aws.svg'
+coverAlt: 'Illustration « K3s sur AWS »'
+draft: true
+series: 'Terraform en pratique'
+keywords: ['velero', 'backup', 'kubernetes', 'k3s']
+---
+
+import Callout from '../../components/Callout.astro';
+
+<Callout type="warning" title="Brouillon">
+  Cet article est en cours de rédaction. Il est visible uniquement avec `npm run dev` et
+  **n'apparaîtra pas** sur le site publié tant que `draft: true` restera dans le frontmatter.
+</Callout>
+
+## TL;DR
+
+À compléter : on installe Velero sur K3s, on configure un backend S3, on planifie des
+sauvegardes et **surtout** on teste une restauration.
+
+## Pourquoi tester la restauration
+
+Une sauvegarde jamais restaurée n'est pas une sauvegarde. C'est la phrase qu'on lit partout
+et qu'on vérifie rarement.
+
+## Installation
+
+```bash
+velero install \
+  --provider aws \
+  --plugins velero/velero-plugin-for-aws:latest \
+  --bucket mes-sauvegardes-k3s \
+  --backup-location-config region=eu-west-3 \
+  --snapshot-location-config region=eu-west-3 \
+  --secret-file ./credentials-velero
+```
+
+## Planification
+
+TODO : décrire le `Schedule`, la rétention, et ce qui n'est pas couvert par Velero.
+
+## Test de restauration
+
+TODO : procédure de restauration dans un namespace isolé.
+
+## Conclusion
+
+À écrire.

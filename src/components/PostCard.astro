@@ -1,5 +1,6 @@
 ---
 import type { BlogPost } from '../utils/posts';
+import DraftBadge from './DraftBadge.astro';
 import FormattedDate from './FormattedDate.astro';
 import TagList from './TagList.astro';
 
@@ -8,11 +9,18 @@ interface Props {
 }
 
 const { post } = Astro.props;
-const { title, description, pubDate, cover, coverAlt, tags } = post.data;
+const { title, description, pubDate, cover, coverAlt, tags, draft } = post.data;
 const href = `/blog/${post.id}`;
 ---
 
-<article class="group flex flex-col overflow-hidden rounded-xl border border-slate-200 bg-white shadow-sm transition hover:shadow-md dark:border-slate-800 dark:bg-slate-900">
+<article
+  class:list={[
+    'group flex flex-col overflow-hidden rounded-xl border bg-white shadow-sm transition hover:shadow-md dark:bg-slate-900',
+    draft && import.meta.env.DEV
+      ? 'border-dashed border-amber-400 dark:border-amber-700'
+      : 'border-slate-200 dark:border-slate-800',
+  ]}
+>
   {cover && (
     <a
       href={href}
@@ -30,8 +38,9 @@ const href = `/blog/${post.id}`;
     </a>
   )}
   <div class="flex flex-1 flex-col gap-3 p-5">
-    <p class="text-xs tracking-wide text-slate-500 uppercase dark:text-slate-400">
+    <p class="flex items-center gap-2 text-xs tracking-wide text-slate-500 uppercase dark:text-slate-400">
       <FormattedDate date={pubDate} />
+      <DraftBadge draft={draft} />
     </p>
     <h2 class="text-lg leading-snug font-semibold">
       <a href={href} class="hover:text-sky-700 hover:underline dark:hover:text-sky-400">

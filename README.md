@@ -67,7 +67,13 @@ lang: 'fr'
 
 ### Règles
 
-- `draft: true` exclut l'article du build de production (mais pas du mode dev).
+- `draft: true` place l'article en **brouillon** :
+  - ✅ **visible en développement** (`npm run dev`), avec un badge « Brouillon » et un
+    rappel sur `/blog` listant les brouillons en attente — pour pouvoir le relire ;
+  - ❌ **absent du site publié** (`npm run build`) : la page n'est pas générée, donc
+    l'article n'apparaît ni dans les listes, ni dans le flux RSS, ni dans le sitemap,
+    ni dans l'index de recherche Pagefind.
+- Pour publier : passez `draft: false` (ou supprimez la ligne) et mergez.
 - Les images **dans le corps** d'un article sont optimisées par Astro lorsqu'elles sont
   référencées en chemin relatif.
 - Les composants MDX (ex. `Callout`) s'importent en tête de fichier :
