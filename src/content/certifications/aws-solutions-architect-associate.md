@@ -13,7 +13,7 @@ code: 'SAA-C03'
 # Optionnel : la certification AWS expire 3 ans après l'obtention.
 # expires: 2027-06-15
 
-logo: '/images/certifications/aws-solutions-architect.svg'
+logo: '/images/certifications/aws-solutions-architect.png'
 logoAlt: 'Badge Solutions Architect – Associate'
 accent: 'amber'
 order: 1

@@ -12,7 +12,7 @@ code: 'CKA'
 # La CKA est valable 3 ans.
 # expires: 2027-06-15
 
-logo: '/images/certifications/kubernetes-cka.svg'
+logo: '/images/certifications/kubernetes-cka.png'
 logoAlt: 'Badge Certified Kubernetes Administrator'
 accent: 'sky'
 order: 2

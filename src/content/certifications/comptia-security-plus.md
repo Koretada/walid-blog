@@ -12,7 +12,7 @@ code: 'SY0-701'
 # Security+ est valable 3 ans (renouvellement par CEU).
 # expires: 2027-06-15
 
-logo: '/images/certifications/comptia-security-plus.svg'
+logo: '/images/certifications/comptia-security-plus.png'
 logoAlt: 'Badge CompTIA Security+'
 accent: 'red'
 order: 3

@@ -137,19 +137,40 @@ node scripts/optimize-certification-badge.mjs ~/telechargements/badge.png --name
 node scripts/optimize-certification-badge.mjs https://exemple.tld/badge.png --name cka
 ```
 
-Sortie : **224×224 px** (4× la taille d'affichage de 56 px, donc net sur Retina et écrans 3×).
-Le script avertit si la source est plus petite que la cible — un agrandissement donne un rendu
-flou, mieux vaut toujours partir du badge d'origine à la résolution la plus élevée fournie par
-l'éditeur. Il affiche aussi la ligne de frontmatter à coller.
+Sortie par défaut : **224×224 px** (4× la taille d'affichage de 56 px, donc net sur Retina et
+écrans 3×). Le script avertit si la source est plus petite que la cible — un agrandissement donne
+un rendu flou, mieux vaut toujours partir du badge d'origine à la résolution la plus élevée
+fournie par l'éditeur. Il affiche aussi la ligne de frontmatter à coller.
+
+> **Choisir `--size`** : inutile de viser 224 px si la source est plus petite. Pour un source de
+> 60 px, `--size 112` (2× l'affichage) suffit et divise le poids par ~3 sans perte visible :
+> au-delà, on ne fait qu'agrandir du flou.
+>
+> ```bash
+> node scripts/optimize-certification-badge.mjs ./source-60px.png --name mon-badge --size 112
+> ```
 
 > **Résolution** : la carte rend le badge en `56×56` CSS. Une source de `60×60` oblige à
 > agrandir de ~4× → rendu mou. Visez au minimum **224 px** de côté à la source.
 
-> **Badges et marques** : `public/images/certifications/` contient des badges SVG **originaux**
-> dessinés pour ce blog (aucun logo officiel n'est reproduit, les marques appartiennent à leurs
-> détenteurs). Si tu détiens une certification, tu peux généralement récupérer le badge officiel
-> fourni par l'émetteur à ses certifiés (Credly pour AWS et CompTIA, credential.net pour la CNCF)
-> et le déposer dans ce dossier : il suffit ensuite de pointer `logo:` dessus, sans changer le code.
+#### Provenance des badges
+
+Les badges de `public/images/certifications/` proviennent des éditeurs de certification. Les
+marques (AWS, Kubernetes, CompTIA) appartiennent à leurs détenteurs ; elles sont utilisées ici
+pour désigner les certifications obtenues.
+
+| Badge | Source | Traitement |
+|---|---|---|
+| `aws-solutions-architect.png` | `blog.filador.ch/resume/images/aws-logo.png` | 60×60 → 112×112 |
+| `kubernetes-cka.png` | `blog.filador.ch/resume/images/kubernetes-logo.png` | 60×58 → 112×112 |
+| `comptia-security-plus.png` | `cin.comptia.org` (mediahub Security+) | 800×730 → 224×224 |
+
+⚠️ Les deux premiers ne sont disponibles qu'en **60 px** : le rendu affiché à 56 px est donc
+**agrandi** (≈2×), ce qui donne un résultat mou sur écran Retina. Les remplacer par les badges
+officiels haute résolution délivrés aux certifiés — Credly pour AWS et CompTIA, portail
+CNCF / Linux Foundation pour la CKA — améliorerait nettement le rendu **et** fournirait
+l'`verifyUrl` (lien « Vérifier le badge »). Voir [Préparer un badge](#préparer-un-badge).
+
 
 Pour insérer la grille dans une page, on utilise le composant :
 
