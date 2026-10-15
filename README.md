@@ -154,7 +154,8 @@ via un reverse proxy / un ingress.
 ### Kubernetes (ArgoCD / GitOps)
 
 Pour un déploiement GitOps sur Kubernetes, les manifests sont dans [`k8s/`](./k8s) :
-`Deployment`, `Service`, `Ingress` (Kustomize base + overlay) et une `Application` ArgoCD.
+`Deployment`, `Service`, `Gateway` et `HTTPRoute` (API Gateway, Kustomize base + overlay),
+plus une `Application` ArgoCD. Le routage passe par **Traefik** via sa `GatewayClass`.
 La CI reporte automatiquement le tag de l'image dans l'overlay de production, et ArgoCD
 synchronise le cluster.
 

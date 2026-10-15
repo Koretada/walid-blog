@@ -311,10 +311,11 @@ merge sur main
          ├─ build + push de l'image        → ghcr.io/<owner>/<repo>:sha-<court>
          └─ commit du tag dans l'overlay   → k8s/overlays/prod/kustomization.yaml
                     │
-                    └──► ArgoCD (selfHeal + prune) ──► Deployment → Service → Ingress
+                    └──► ArgoCD (selfHeal + prune) ──► Deployment · Service · Gateway · HTTPRoute
 ```
 
-- **Manifests** : `k8s/base/` (Deployment, Service, Ingress) + `k8s/overlays/prod/` (Kustomize).
+- **Manifests** : `k8s/base/` (Deployment, Service, Gateway, HTTPRoute) + `k8s/overlays/prod/` (Kustomize).
+- **Routage** : API Gateway (Gateway + HTTPRoute) servie par la `GatewayClass` de **Traefik** ; le TLS est référencé sur le listener `https` (`certificateRefs`), et la redirection HTTP→HTTPS est un filtre natif `RequestRedirect`.
 - **Point d'entrée** : une `Application` ArgoCD (`k8s/argocd/application.yaml`) bootstrapée une fois, puis pilotée par Git.
 - **Tag d'image immuable** (`sha-<court>`) : le rollback se fait par `git revert` du commit de bump, ou via l'historique ArgoCD.
 - **Anti-boucle** : le commit de bump porte `[skip ci]`, ce qui évite de relancer la CI qui l'a produit.

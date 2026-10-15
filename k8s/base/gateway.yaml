@@ -1,0 +1,37 @@
+apiVersion: gateway.networking.k8s.io/v1
+kind: Gateway
+metadata:
+  name: walid-blog
+  labels:
+    app.kubernetes.io/name: walid-blog
+    app.kubernetes.io/component: web
+  annotations:
+    # Certificat géré par cert-manager (nécessite son support Gateway API).
+    # Alternative : créer un Certificate dont le secret cible `walid-blog-tls`.
+    # cert-manager.io/cluster-issuer: letsencrypt-prod
+spec:
+  # GatewayClass fournie par Traefik.
+  # Prérequis : providers.kubernetesGateway.enabled = true (voir k8s/README.md)
+  gatewayClassName: traefik
+  listeners:
+    - name: http
+      protocol: HTTP
+      # ⚠️ Le port DOIT correspondre à un EntryPoint Traefik.
+      # 8000 = entrypoint « web » (valeurs par défaut K3s / chart Helm).
+      port: 8000
+      allowedRoutes:
+        namespaces:
+          from: Same
+
+    - name: https
+      protocol: HTTPS
+      # ⚠️ 8443 = entrypoint « websecure ». Le Service Traefik expose 443 → 8443.
+      port: 8443
+      tls:
+        mode: Terminate
+        certificateRefs:
+          - name: walid-blog-tls
+            kind: Secret
+      allowedRoutes:
+        namespaces:
+          from: Same

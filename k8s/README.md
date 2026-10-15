@@ -4,14 +4,15 @@ Le blog est publié sous forme d'image Docker sur GHCR, puis déployé sur un cl
 Kubernetes par **ArgoCD**, selon le principe GitOps : **Git est la source de vérité**,
 ArgoCD réconcilie en continu l'état du cluster.
 
-> Prérequis : un cluster avec **ArgoCD** et un **contrôleur Ingress**.
-> Sur K3s, **Traefik** est fourni par défaut — c'est ce que ces manifests ciblent.
+> Prérequis : un cluster avec **ArgoCD** et l'**API Gateway**.
+> Sur K3s, **Traefik** est fourni par défaut : il fournit la `GatewayClass` `traefik`
+> (à activer, voir [Traefik & Gateway API](#traefik--gateway-api)).
 
 ## Sommaire du dossier
 
 | Fichier | Rôle |
 | --- | --- |
-| `base/` | Manifests communs : `Deployment`, `Service`, `Ingress` |
+| `base/` | Manifests communs : `Deployment`, `Service`, `Gateway`, `HTTPRoute` |
 | `overlays/prod/kustomization.yaml` | Overlay de production — **point d'entrée surveillé par ArgoCD** |
 | `argocd/application.yaml` | Manifeste de l'`Application` ArgoCD (application unique, une fois) |
 
@@ -27,7 +28,7 @@ merge sur main
               │
               └──► ArgoCD détecte le commit
                         │
-                        └──► synchronise le cluster (Deployment → Service → Ingress)
+                        └──► synchronise le cluster (Deployment · Service · Gateway · HTTPRoute)
 ```
 
 ## Cycle de publication
@@ -55,8 +56,9 @@ argocd app rollback walid-blog
 
 ### 1. Adapter le domaine
 
-Remplacez `walidblog.example.com` dans `base/ingress.yaml` par votre domaine réel, et
-alignez la valeur `site` de `astro.config.mjs` (ou la variable d'environnement `SITE_URL`).
+Remplacez `walidblog.example.com` dans `base/gateway.yaml` (uniquement dans les
+`HTTPRoute`) par votre domaine réel, et alignez la valeur `site` de `astro.config.mjs`
+(ou la variable d'environnement `SITE_URL`).
 
 ### 2. Bootstrap de l'`Application`
 
@@ -72,7 +74,7 @@ kubectl apply -f k8s/argocd/application.yaml
 
 ```bash
 kubectl -n argocd get application walid-blog
-kubectl -n walid-blog get pods,svc,ingress
+kubectl -n walid-blog get pods,svc,gateway,httproute
 argocd app get walid-blog          # si le CLI argocd est installé
 ```
 
@@ -102,24 +104,28 @@ kubectl apply --dry-run=client -f <(kubectl kustomize k8s/overlays/prod)
   `/var/cache/nginx`). Pour aller plus loin : `nginxinc/nginx-unprivileged` (voir
   [`../docker/README.md`](../docker/README.md)).
 
-## Traefik (contrôleur Ingress de K3s)
+## Traefik & Gateway API
 
-K3s embarque **Traefik** comme contrôleur Ingress par défaut : l'Ingress de ce dossier
-utilise donc `ingressClassName: traefik`.
+Le routage utilise l'**API Gateway** (et non plus `Ingress`) : la ressource `HTTPRoute`
+s'attache à une `Gateway`, dont la `GatewayClass` est fournie par **Traefik**.
+
+> ⚠️ Ne pas confondre : **Traefik** route le trafic *vers* le cluster (Gateway / HTTPRoute),
+> **Nginx** sert les fichiers statiques *dans* le conteneur (voir [`../docker/`](../docker)).
+
+### Prérequis (une seule fois, au niveau du cluster)
+
+**1. Installer les CRD de l'API Gateway** (canal *Standard*), alignées sur la spécification
+supportée par Traefik :
 
 ```bash
-kubectl get ingressclass          # → traefik (souvent marqué « default »)
+kubectl apply -f https://github.com/kubernetes-sigs/gateway-api/releases/download/v1.6.3/standard-install.yaml
 ```
 
-> ⚠️ Ne pas confondre les deux « Nginx » : **Traefik** route le trafic *vers* le cluster
-> (rôle de l'Ingress), **Nginx** sert les fichiers statiques *dans* le conteneur
-> (voir [`../docker/`](../docker)).
+**2. Activer le provider Gateway de Traefik.** Il est **désactivé par défaut**
+(`providers.kubernetesGateway.enabled: false`). Sans cela, la `GatewayClass` `traefik`
+n'existe pas et la `Gateway` reste en `Accepted=False`.
 
-### Redirection HTTP → HTTPS
-
-`spec.tls` seul ne redirige pas : le site resterait joignable en clair sur HTTP. Deux options.
-
-**Option A — globale (recommandée sur K3s)** : à déclarer une seule fois, au niveau du cluster.
+Sur K3s, Traefik est géré via `HelmChartConfig` :
 
 ```yaml
 # /var/lib/rancher/k3s/server/manifests/traefik-config.yaml
@@ -130,60 +136,95 @@ metadata:
   namespace: kube-system
 spec:
   valuesContent: |-
-    ports:
-      web:
-        redirectTo:
-          port: websecure
+    providers:
+      kubernetesGateway:
+        enabled: true
+    gateway:
+      enabled: false   # on fournit notre propre Gateway (base/gateway.yaml)
 ```
 
-**Option B — par Ingress** : créer un `Middleware`, puis le référencer dans une annotation.
+Vérification :
+
+```bash
+kubectl get gatewayclass                 # → traefik (ACCEPTED: True)
+kubectl -n walid-blog get gateway,httproute
+```
+
+### Ports des listeners — le piège n°1
+
+> D'après la doc Traefik : les ports des listeners d'une `Gateway` **doivent correspondre
+> aux ports des EntryPoints** du déploiement Traefik. Sinon un `ERROR` est journalisé et le
+> statut de la ressource passe en échec.
+
+Valeurs par défaut (K3s / chart Helm) :
+
+| Listener | Port à déclarer | EntryPoint Traefik | Exposé par le Service |
+| --- | --- | --- | --- |
+| `http` | **8000** | `web` | 80 → 8000 |
+| `https` | **8443** | `websecure` | 443 → 8443 |
+
+### TLS
+
+Le certificat est référencé **sur le listener** de la `Gateway`, en mode `Terminate` :
 
 ```yaml
-apiVersion: traefik.io/v1alpha1   # Traefik 3.x — `traefik.containo.us/v1alpha1` sur du 2.x
-kind: Middleware
-metadata:
-  name: redirect-https
-  namespace: walid-blog
-spec:
-  redirectScheme:
-    scheme: https
-    permanent: true
+listeners:
+  - name: https
+    protocol: HTTPS
+    port: 8443
+    tls:
+      mode: Terminate
+      certificateRefs:
+        - name: walid-blog-tls
 ```
+
+Trois façons de produire le secret `walid-blog-tls` (qui doit être **dans le namespace de
+la `Gateway`**, donc `walid-blog`) :
+
+1. **cert-manager avec support Gateway API** : décommentez l'annotation
+   `cert-manager.io/cluster-issuer` sur la `Gateway` dans `base/gateway.yaml`.
+2. **cert-manager classique** : créez une ressource `Certificate` avec
+   `secretName: walid-blog-tls`.
+3. **Manuel** :
+   `kubectl create secret tls walid-blog-tls -n walid-blog --cert=crt.pem --key=key.pem`
+
+### Redirection HTTP → HTTPS
+
+Aucun `Middleware` Traefik n'est nécessaire : c'est un **filtre natif** de l'API Gateway,
+porté par la route `walid-blog-redirect` de `base/httproute.yaml` :
 
 ```yaml
-# à ajouter sur l'Ingress
-annotations:
-  traefik.ingress.kubernetes.io/router.middlewares: walid-blog-redirect-https@kubernetescrd
+filters:
+  - type: RequestRedirect
+    requestRedirect:
+      scheme: https
+      statusCode: 301
 ```
 
-La référence se lit `<namespace>-<nom>@kubernetescrd`.
+Avec `scheme: https` et **sans** `port`, la redirection cible le port 443 implicite — ce qui
+est correct puisque le Service Traefik expose 443 → 8443.
 
-### Variante : `IngressRoute` (CRD Traefik)
+### Alternative : réutiliser la Gateway du chart Traefik
 
-Plus expressif (`entryPoints` explicites, middlewares, options TLS), mais **propre à
-Traefik** et donc non portable :
+Par défaut, le chart crée aussi sa propre `Gateway` dans le namespace de Traefik. La
+réutiliser impose de lever la restriction inter-namespace (une route ne peut pas, par
+défaut, s'attacher à une `Gateway` d'un autre namespace) :
 
 ```yaml
-apiVersion: traefik.io/v1alpha1
-kind: IngressRoute
-metadata:
-  name: walid-blog
-  namespace: walid-blog
-spec:
-  entryPoints: [websecure]
-  routes:
-    - match: Host(`walidblog.example.com`)
-      kind: Rule
-      services:
-        - name: walid-blog
-          port: 80
-  tls: {}
+gateway:
+  enabled: true
+  listeners:
+    web:
+      namespacePolicy:
+        from: All
 ```
 
-**Choix retenu : l'Ingress standard.** Pour un site statique il fait exactement le même
-travail, il est compatible cert-manager, et il resterait valable si tu changeais de
-contrôleur. `IngressRoute` n'a d'intérêt qu'à partir du moment où tu veux des middlewares
-Traefik avancés (limitation de débit, en-têtes, authentification).
+Puis dans la `HTTPRoute` :
+`parentRefs: [{name: traefik-gateway, namespace: traefik, sectionName: web}]`
+
+**Choix retenu : une `Gateway` propre à l'application** (`base/gateway.yaml`, namespace
+`walid-blog`). Elle évite toute référence inter-namespace, reste versionnée avec le blog, et
+conserve `allowedRoutes.namespaces.from: Same` — soit le réglage le plus restrictif.
 
 ## Dépannage
 
@@ -191,9 +232,12 @@ Traefik avancés (limitation de débit, en-têtes, authentification).
 | --- | --- |
 | `ImagePullBackOff` | Package GHCR resté privé, ou tag inexistant dans le registre |
 | `503` sur le domaine | Aucun pod `Ready` (voir `kubectl -n walid-blog describe pod`) |
-| `404` renvoyé par Traefik | `ingressClassName` erroné → `kubectl get ingressclass` |
-| Le site répond en HTTP sans redirection | Redirection HTTP→HTTPS non configurée (voir ci-dessus) |
-| Certificat TLS invalide / auto-signé | `cert-manager` absent, annotation `cluster-issuer` commentée, ou secret `walid-blog-tls` inexistant |
+| `Gateway` en `Accepted=False` | CRD de l'API Gateway absents, ou provider Gateway de Traefik non activé |
+| `Gateway` en `Programmed=False` | Port de listener ≠ port d'EntryPoint Traefik (attendu : 8000 / 8443) |
+| `HTTPRoute` en `Accepted=False` | `parentRefs` ne cible pas la bonne `Gateway`/listener, ou namespace non autorisé |
+| `404` renvoyé par Traefik | `hostnames` de la `HTTPRoute` ≠ domaine demandé |
+| Le site répond en HTTP sans redirection | Route `walid-blog-redirect` absente ou non attachée au listener `http` |
+| Certificat TLS invalide / auto-signé | Secret `walid-blog-tls` absent du namespace `walid-blog` (voir section TLS) |
 | ArgoCD `OutOfSync` en boucle | `selfHeal` corrige une modification manuelle : revenez à Git |
 | Le site ne se met pas à jour | Le commit de bump n'a pas été poussé (`publish.yml` en échec) |
 
@@ -203,5 +247,5 @@ Traefik avancés (limitation de débit, en-têtes, authentification).
   lui-même). Pertinent si les manifests vivent dans un dépôt de configuration dédié.
 - **`ServiceMonitor`** : inutile en l'état, Nginx n'expose pas de métriques Prometheus
   sans exporter supplémentaire.
-- **CDN devant l'Ingress** : le cluster étant mono-nœud, un cache en amont améliore
+- **CDN devant la Gateway** : le cluster étant mono-nœud, un cache en amont améliore
   nettement la latence et la résilience.
