@@ -34,8 +34,11 @@ spec:
       tls:
         mode: Terminate
         certificateRefs:
-          - name: walid-blog-tls
+          # `group` et `kind` sont explicités : l'API les ajoute par défaut,
+          # et ArgoCD les verrait comme une dérive s'ils manquaient.
+          - group: ''
             kind: Secret
+            name: walid-blog-tls
       allowedRoutes:
         namespaces:
           from: Same
