@@ -123,6 +123,22 @@ supportée par Traefik :
 kubectl apply -f https://github.com/kubernetes-sigs/gateway-api/releases/download/v1.6.3/standard-install.yaml
 ```
 
+> ⚠️ **La version des CRD est critique.** Traefik 3.x attend une version récente du canal
+> *Standard* : `TLSRoute` et `BackendTLSPolicy` y sont passées en **v1.3**. Avec des CRD plus
+> anciens (ex. v1.2.0), le provider Gateway de Traefik échoue en boucle sur
+> `"Failed to watch … the server could not find the requested resource"`, la `GatewayClass`
+> reste en `Accepted=Unknown` et **aucune `Gateway` n'est programmée** — le tout *sans
+> message d'erreur explicite sur la `Gateway` elle-même*.
+
+Vérification :
+
+```bash
+kubectl get crd gateways.gateway.networking.k8s.io \
+  -o jsonpath='{.metadata.annotations.gateway\.networking\.k8s\.io/bundle-version}{"\n"}'
+kubectl get crd | grep gateway.networking          # tlsroutes + backendtlspolicies attendues
+kubectl get gatewayclass traefik                   # ACCEPTED doit valoir True
+```
+
 **2. Activer le provider Gateway de Traefik.** Il est **désactivé par défaut**
 (`providers.kubernetesGateway.enabled: false`). Sans cela, la `GatewayClass` `traefik`
 n'existe pas et la `Gateway` reste en `Accepted=False`.
@@ -284,6 +300,7 @@ conserve `allowedRoutes.namespaces.from: Same` — soit le réglage le plus rest
 | --- | --- |
 | `ImagePullBackOff` | Package GHCR resté privé, ou tag inexistant dans le registre |
 | `503` sur le domaine | Aucun pod `Ready` (voir `kubectl -n walid-blog describe pod`) |
+| `GatewayClass` en `Accepted=Unknown` (« Waiting for controller ») | CRD Gateway API trop anciens : `TLSRoute`/`BackendTLSPolicy` absentes (canal Standard ≥ v1.3 requis) |
 | `Gateway` en `Accepted=False` | CRD de l'API Gateway absents, ou provider Gateway de Traefik non activé |
 | `Gateway` en `Programmed=False` | Port de listener ≠ port d'EntryPoint Traefik (attendu : 8000 / 8443) |
 | `HTTPRoute` en `Accepted=False` | `parentRefs` ne cible pas la bonne `Gateway`/listener, ou namespace non autorisé |
