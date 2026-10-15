@@ -47,7 +47,13 @@ spec:
   hostnames:
     - blog.walidb.fr
   rules:
-    - filters:
+    - matches:
+        # Explicité : sans `matches`, l'API remplit un PathPrefix « / » par
+        # défaut, ce qu'ArgoCD interpréterait comme une dérive.
+        - path:
+            type: PathPrefix
+            value: /
+      filters:
         - type: RequestRedirect
           requestRedirect:
             scheme: https
