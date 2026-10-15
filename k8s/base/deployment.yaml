@@ -23,6 +23,15 @@ spec:
         app.kubernetes.io/name: walid-blog
         app.kubernetes.io/component: web
     spec:
+      # L'image de runtime (nginxinc/nginx-unprivileged) démarre en uid 101 et
+      # n'effectue aucun chown : elle est donc compatible avec drop: [ALL].
+      # Profil « restricted » des Pod Security Standards.
+      securityContext:
+        runAsNonRoot: true
+        runAsUser: 101
+        runAsGroup: 101
+        seccompProfile:
+          type: RuntimeDefault
       containers:
         - name: web
           # Le tag est mis à jour automatiquement par la CI dans l'overlay prod

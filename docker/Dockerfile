@@ -37,17 +37,34 @@ RUN npm run build
 
 # ===========================================================================
 # Étape 2 — Runtime : Nginx sert uniquement des fichiers statiques
+# ---------------------------------------------------------------------------
+# Image « unprivileged » : elle démarre directement en uid 101 (non-root) et
+# n'a donc aucun chown() à faire sur /var/cache/nginx.
+#
+# L'image officielle `nginx` démarre au contraire le master en root puis tente
+# de chown les dossiers de cache vers l'utilisateur nginx (uid 101). Avec
+# `capabilities.drop: [ALL]` (cf. k8s/base/deployment.yaml), CAP_CHOWN n'existe
+# plus et le conteneur plante :
+#   [emerg] chown("/var/cache/nginx/client_temp", 101) failed (1: Operation not permitted)
 # ===========================================================================
-FROM nginx:1.27-alpine AS runtime
+FROM nginxinc/nginx-unprivileged:1.27-alpine AS runtime
+
+# Les messages d'initialisation de l'entrypoint n'apportent rien ici
+ENV NGINX_ENTRYPOINT_QUIET_LOGS=1
 
 # Configuration Nginx (en-têtes de sécurité, cache, compression, 404)
 COPY docker/nginx.conf /etc/nginx/conf.d/default.conf
 
-# On repart d'une racine web vide, puis on y dépose le site généré
+# On repart d'une racine web vide, puis on y dépose le site généré.
+# USER root uniquement le temps de ce nettoyage, quel que soit l'USER de base.
+USER root
 RUN rm -rf /usr/share/nginx/html/*
-COPY --from=build /app/dist /usr/share/nginx/html
+COPY --chown=101:101 --from=build /app/dist /usr/share/nginx/html
 
-# Port non privilégié (permet de passer à un conteneur non-root)
+# Retour à l'utilisateur non privilégié de l'image
+USER 101
+
+# Port non privilégié (celui par défaut de l'image unprivileged)
 EXPOSE 8080
 
 HEALTHCHECK --interval=30s --timeout=3s --start-period=5s --retries=3 \

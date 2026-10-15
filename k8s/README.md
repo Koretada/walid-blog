@@ -99,10 +99,12 @@ kubectl apply --dry-run=client -f <(kubectl kustomize k8s/overlays/prod)
 - **`imagePullPolicy: IfNotPresent`** : on tire **une seule fois** un tag immuable
   (`sha-<court>`). On ne déploie jamais un tag mouvant — c'est ce qui rend le rollback
   déterministe.
-- **`allowPrivilegeEscalation: false` + `drop: ALL`** : durcissement sans casser l'image
-  officielle `nginx:alpine` (dont le master a besoin de root pour écrire dans
-  `/var/cache/nginx`). Pour aller plus loin : `nginxinc/nginx-unprivileged` (voir
-  [`../docker/README.md`](../docker/README.md)).
+- **`runAsNonRoot` + `drop: [ALL]`** : l'image de runtime
+  (`nginxinc/nginx-unprivileged`) démarre en uid 101 et n'effectue **aucun `chown`**, ce qui
+  la rend compatible avec le profil *restricted* des Pod Security Standards. À l'inverse,
+  l'image officielle `nginx` — qui démarre le master en root — échouerait ici
+  (`chown(.../client_temp, 101) failed: Operation not permitted`). Voir
+  [`../docker/README.md`](../docker/README.md).
 
 ## Traefik & Gateway API
 

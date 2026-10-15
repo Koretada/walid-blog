@@ -7,7 +7,7 @@ première étape, puis servi par **Nginx** dans une image finale légère (sans 
 
 | Fichier | Rôle |
 | --- | --- |
-| `Dockerfile` | Build multi-étapes : `node:22-bookworm-slim` (build) → `nginx:1.27-alpine` (runtime) |
+| `Dockerfile` | Build multi-étapes : `node:22-bookworm-slim` (build) → `nginxinc/nginx-unprivileged:1.27-alpine` (runtime, non-root) |
 | `nginx.conf` | Configuration Nginx : en-têtes de sécurité, compression, cache, 404 |
 | `docker-compose.yml` | Développement / build local (`--build`) |
 | `docker-compose.prod.yml` | Production : utilise l'image publiée sur GHCR |
@@ -37,7 +37,7 @@ Le site est alors disponible sur **<http://localhost:8080>**.
    npm run build             → astro build && pagefind --site dist
    │
    └──► /app/dist
-Étape 2 — runtime (nginx:1.27-alpine)
+Étape 2 — runtime (nginxinc/nginx-unprivileged:1.27-alpine, uid 101)
    COPY nginx.conf                  → /etc/nginx/conf.d/default.conf
    COPY --from=build /app/dist      → /usr/share/nginx/html
    EXPOSE 8080 + HEALTHCHECK
@@ -56,14 +56,20 @@ ce binaire, et `npm run build` échouerait à l'exécution. L'étape de build ut
 `node:22-bookworm-slim` (glibc). L'étape **runtime** peut rester sur Alpine : elle se
 contente de servir des fichiers statiques.
 
-### Port 8080
+### Port 8080 et utilisateur non-root
 
-Le conteneur écoute sur **8080** (port non privilégié), ce qui permet — si besoin — de faire
-tourner Nginx en utilisateur non-root :
+Le conteneur écoute sur **8080** et tourne en **uid 101 (non-root)**, grâce à l'image
+`nginxinc/nginx-unprivileged`.
 
-```dockerfile
-FROM nginxinc/nginx-unprivileged:1.27-alpine
-```
+> ⚠️ **Ne pas utiliser `nginx:alpine` avec `capabilities.drop: [ALL]`.** L'image officielle
+> démarre le master en **root** puis exécute `chown(.../client_temp, 101)` pour basculer les
+> workers sur l'utilisateur `nginx`. Sans `CAP_CHOWN`, cette étape échoue et le conteneur
+> redémarre en boucle :
+> `[emerg] chown("/var/cache/nginx/client_temp", 101) failed (1: Operation not permitted)`
+
+L'image *unprivileged* n'a **aucun `chown` à effectuer** : les chemins temporaires lui
+appartiennent déjà. C'est ce qui rend possible un `securityContext` en profil
+*restricted* côté Kubernetes (`runAsNonRoot: true`, `drop: [ALL]`).
 
 ### En-têtes servis par Nginx
 
