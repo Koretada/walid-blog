@@ -1,6 +1,6 @@
 # walidblog
 
-Blog IT (**Cloud · DevOps · Infrastructure-as-Code · Observabilité**) construit en
+Blog IT (**Cloud · DevSecOps · Infrastructure-as-Code · Observabilité**) construit en
 **documentation as code** : les articles sont des fichiers Markdown/MDX versionnés dans Git,
 générés en site statique par **Astro**, puis **conteneurisés** pour être servis par Nginx.
 
