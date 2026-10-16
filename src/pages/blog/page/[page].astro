@@ -32,21 +32,21 @@ const { page, totalPages, items } = Astro.props;
 ---
 
 <BaseLayout
-  title={`Blog — page ${page}`}
-  description={`Articles de blog, page ${page} sur ${totalPages}.`}
+  title={`Articles — page ${page}`}
+  description={`Tous les articles, page ${page} sur ${totalPages}.`}
   noindex
 >
   <Breadcrumbs
     items={[
       { label: 'Accueil', href: '/' },
-      { label: 'Blog', href: '/blog' },
+      { label: 'Articles', href: '/blog' },
       { label: `Page ${page}` },
     ]}
   />
 
   <header class="mt-6">
     <h1 class="text-3xl font-bold tracking-tight text-slate-900 dark:text-slate-100">
-      Blog — page {page}
+      Articles — page {page}
     </h1>
   </header>
 

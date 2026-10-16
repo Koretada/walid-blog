@@ -17,17 +17,17 @@ const items = paginate(posts, POSTS_PER_PAGE, 1);
 ---
 
 <BaseLayout
-  title="Blog"
+  title="Articles"
   description={`Tous les articles de ${SITE.title} : Cloud, DevSecOps, Infrastructure-as-Code et observabilité.`}
   jsonLd={breadcrumbJsonLd([
     { name: 'Accueil', url: '/' },
-    { name: 'Blog', url: '/blog' },
+    { name: 'Articles', url: '/blog' },
   ])}
 >
-  <Breadcrumbs items={[{ label: 'Accueil', href: '/' }, { label: 'Blog' }]} />
+  <Breadcrumbs items={[{ label: 'Accueil', href: '/' }, { label: 'Articles' }]} />
 
   <header class="mt-6">
-    <h1 class="text-3xl font-bold tracking-tight text-slate-900 dark:text-slate-100">Blog</h1>
+    <h1 class="text-3xl font-bold tracking-tight text-slate-900 dark:text-slate-100">Articles</h1>
     <p class="mt-2 text-slate-600 dark:text-slate-400">
       {publishedCount}
       {publishedCount > 1 ? 'articles publiés' : 'article publié'} — Cloud, DevSecOps, IaC et

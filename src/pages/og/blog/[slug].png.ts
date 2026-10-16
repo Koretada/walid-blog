@@ -13,7 +13,7 @@ export const getStaticPaths: GetStaticPaths = async () => {
 
 export const GET: APIRoute = async ({ props }) => {
   const { post } = props as { post: BlogPost };
-  const kicker = post.data.categories[0] ?? 'Blog';
+  const kicker = post.data.categories[0] ?? 'Articles';
   const svg = renderOgSvg(post.data.title, kicker);
 
   const png = await sharp(Buffer.from(svg)).png().toBuffer();

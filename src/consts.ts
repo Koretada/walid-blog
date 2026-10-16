@@ -5,7 +5,7 @@
 
 export const SITE = {
   /** Nom affiché du site */
-  title: 'walidblog',
+  title: 'Walid B.',
   /** Tagline courte (header, hero) */
   tagline: 'Cloud · DevOps · Infrastructure-as-Code',
   /** Description par défaut (SEO / Open Graph) */
@@ -33,7 +33,7 @@ export const SITE = {
 
 /** Navigation principale */
 export const NAV_LINKS: ReadonlyArray<{ href: string; label: string }> = [
-  { href: '/blog', label: 'Blog' },
+  { href: '/blog', label: 'Articles' },
   { href: '/tags', label: 'Tags' },
   { href: '/categories', label: 'Catégories' },
   { href: '/search', label: 'Recherche' },
