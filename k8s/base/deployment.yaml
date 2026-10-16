@@ -8,18 +8,24 @@ metadata:
 spec:
   # 1 replica : sur un cluster mono-nœud (VPS K3s), une 2e réplica ne procure
   # aucune haute disponibilité — le nœud reste de toute façon un point de
-  # défaillance unique — tout en doublant la consommation de ressources.
+  # défaillance unique — et la fenêtre pendant laquelle deux versions coexistent
+  # lors d'un déploiement est supprimée.
   #
-  # Avec `maxUnavailable: 0`, Kubernetes démarre le nouveau pod AVANT d'arrêter
-  # l'ancien : le service n'est jamais interrompu, et la fenêtre pendant laquelle
-  # deux versions coexistent se réduit à la mise à jour des endpoints (≈ 1 s).
-  # Avec 2 réplicas, cette fenêtre durait le temps de remplacer deux pods
-  # successivement (plusieurs dizaines de secondes).
+  # ⚠️ Compromis MESURÉ (260 requêtes espacées de 2 s pendant un déploiement) :
+  # `maxUnavailable: 0` fait bien démarrer le nouveau pod avant d'arrêter
+  # l'ancien (vérifié dans les événements : « Started » puis « Killing »), mais
+  # la propagation du nouvel endpoint jusqu'à Traefik laisse un trou pendant
+  # lequel plus aucun backend ne répond : 1 requête sur 260 en échec, aucune
+  # réponse pendant ~5 à 9 s. Bascule de version nette (aucune réponse n'a servi
+  # les deux versions), contre une brève coupure à chaque déploiement.
   #
-  # ⚠️ Garantir qu'AUCUNE requête ne voie deux versions simultanément imposerait
-  # `strategy: Recreate` (maxSurge: 0) : l'ancien pod est alors supprimé avant que
-  # le nouveau ne démarre, ce qui provoque une coupure de plusieurs secondes à
-  # chaque déploiement. Mauvais compromis pour un site public.
+  # Avec 2 réplicas, le pod restant masque ce délai (déploiement sans coupure),
+  # au prix d'une coexistence des versions plus longue.
+  #
+  # Aucun réglage ne donne à la fois zéro coupure ET une seule version servie :
+  # il faut au minimum un pod qui réponde pendant que l'autre démarre.
+  # `strategy: Recreate` irait plus loin dans la coupure ; si la disponibilité
+  # primait sur tout le reste, il faudrait repasser à 2 réplicas.
   replicas: 1
   revisionHistoryLimit: 3
   strategy:
