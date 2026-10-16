@@ -6,8 +6,21 @@ metadata:
     app.kubernetes.io/name: walid-blog
     app.kubernetes.io/component: web
 spec:
-  # 2 replicas : permet un rolling update sans coupure (maxUnavailable: 0)
-  replicas: 2
+  # 1 replica : sur un cluster mono-nœud (VPS K3s), une 2e réplica ne procure
+  # aucune haute disponibilité — le nœud reste de toute façon un point de
+  # défaillance unique — tout en doublant la consommation de ressources.
+  #
+  # Avec `maxUnavailable: 0`, Kubernetes démarre le nouveau pod AVANT d'arrêter
+  # l'ancien : le service n'est jamais interrompu, et la fenêtre pendant laquelle
+  # deux versions coexistent se réduit à la mise à jour des endpoints (≈ 1 s).
+  # Avec 2 réplicas, cette fenêtre durait le temps de remplacer deux pods
+  # successivement (plusieurs dizaines de secondes).
+  #
+  # ⚠️ Garantir qu'AUCUNE requête ne voie deux versions simultanément imposerait
+  # `strategy: Recreate` (maxSurge: 0) : l'ancien pod est alors supprimé avant que
+  # le nouveau ne démarre, ce qui provoque une coupure de plusieurs secondes à
+  # chaque déploiement. Mauvais compromis pour un site public.
+  replicas: 1
   revisionHistoryLimit: 3
   strategy:
     type: RollingUpdate
