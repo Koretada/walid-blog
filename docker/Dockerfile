@@ -20,7 +20,7 @@
 # Pagefind ne publie que des binaires glibc (@pagefind/linux-x64) : sur Alpine,
 # `npm ci` installerait ce binaire et le build échouerait à l'exécution.
 # ===========================================================================
-FROM node:22-bookworm-slim AS build
+FROM node:26-bookworm-slim AS build
 
 WORKDIR /app
 
