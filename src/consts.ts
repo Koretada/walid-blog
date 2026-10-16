@@ -19,11 +19,15 @@ export const SITE = {
   locale: 'fr_FR',
   /** Image Open Graph par défaut (dans public/) */
   defaultOgImage: '/og-default.png',
-  /** Comptes sociaux (utilisés dans le footer et le JSON-LD) */
+  /**
+   * Comptes sociaux : alimentent le footer, la page « À propos » et le JSON-LD
+   * `sameAs`, qui est construit à partir de cet objet. N'y lister que les
+   * réseaux réellement utilisés : retirer une entrée la fait disparaître
+   * partout, sans autre modification à faire.
+   */
   social: {
     github: 'https://github.com/koretada',
-    linkedin: 'https://www.linkedin.com/in/koretada',
-    x: 'https://x.com/koretada',
+    linkedin: 'https://fr.linkedin.com/in/walidbounhach',
   },
 } as const;
 

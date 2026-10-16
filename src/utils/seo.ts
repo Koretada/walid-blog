@@ -17,7 +17,8 @@ export function personJsonLd(
     '@type': 'Person',
     name: SITE.author,
     url: absoluteUrl('/about'),
-    sameAs: [SITE.social.github, SITE.social.linkedin, SITE.social.x],
+    // Construit depuis SITE.social : retirer un réseau le retire d'ici aussi.
+    sameAs: Object.values(SITE.social),
   };
 
   if (credentials.length > 0) {
