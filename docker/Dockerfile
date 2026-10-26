@@ -47,7 +47,7 @@ RUN npm run build
 # plus et le conteneur plante :
 #   [emerg] chown("/var/cache/nginx/client_temp", 101) failed (1: Operation not permitted)
 # ===========================================================================
-FROM nginxinc/nginx-unprivileged:1.27-alpine AS runtime
+FROM nginxinc/nginx-unprivileged:1.31-alpine AS runtime
 
 # Les messages d'initialisation de l'entrypoint n'apportent rien ici
 ENV NGINX_ENTRYPOINT_QUIET_LOGS=1
